@@ -221,7 +221,7 @@
     <!-- ── Step 2: Touchpoints ── -->
     <div class="form-step" id="step-2">
       <h2 class="form-step-title">Map your customer journey.</h2>
-      <p class="form-step-sub">List the key moments your customer moves through — from first contact to delivery. Add between 3 and 6 touchpoints.</p>
+      <p class="form-step-sub">List the key moments your customer moves through — from first contact to delivery. Add up to 6 touchpoints (even just 1 is fine).</p>
 
       <div id="touchpoints-list"></div>
 
@@ -328,8 +328,8 @@ function goStep(n) {
   }
   if (n === 3) {
     // Validate touchpoints
-    if (touchpoints.length < 3) {
-      alert('Please add at least 3 touchpoints to continue.');
+    if (touchpoints.length < 1) {
+      alert('Please add at least 1 touchpoint to continue.');
       return;
     }
     renderFeelings();
