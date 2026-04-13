@@ -237,9 +237,10 @@ app.post('/api/pdf', async (req, res) => {
     const htmlPdf = require('html-pdf-node');
     const htmlContent = buildPdfHtml(audit);
     const options = {
-      format: 'A4',
+      width: '1000px',
+      height: '5000px',
       printBackground: true,
-      margin: { top: 0, right: 0, bottom: 0, left: 0 },
+      margin: { top: '40px', right: '0px', bottom: '40px', left: '0px' },
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
       executablePath: process.env.CHROMIUM_PATH ||
         ['/usr/bin/google-chrome-stable', '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser']
@@ -299,7 +300,7 @@ function buildPdfHtml(audit) {
 <head>
 <meta charset="UTF-8">
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; page-break-inside: avoid; }
   body { background: #0D0D0D; color: #F0EDE6; font-family: 'DM Sans', Arial, sans-serif; padding: 48px; }
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@400;500;600&display=swap');
 </style>
