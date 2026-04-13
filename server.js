@@ -236,7 +236,13 @@ app.post('/api/pdf', async (req, res) => {
 
     const htmlPdf = require('html-pdf-node');
     const htmlContent = buildPdfHtml(audit);
-    const options = { format: 'A4', printBackground: true, margin: { top: 0, right: 0, bottom: 0, left: 0 } };
+    const options = {
+      format: 'A4',
+      printBackground: true,
+      margin: { top: 0, right: 0, bottom: 0, left: 0 },
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+      executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium-browser'
+    };
     const file = { content: htmlContent };
 
     const pdfBuffer = await htmlPdf.generatePdf(file, options);
