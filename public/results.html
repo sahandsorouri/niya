@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Emotional Coherence Report — Activate Vision</title>
+  <meta name="description" content="Your personalized emotional gap audit report from Activate Vision." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;1,9..144,300;1,9..144,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+
+  <style>
+    /* Report-specific styles */
+    .report-hero {
+      padding: 120px 0 80px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .report-hero__glow {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    /* Score ring */
+    .score-ring-svg { transform: rotate(-90deg); }
+    .score-ring-track { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 8; }
+    .score-ring-progress {
+      fill: none;
+      stroke-width: 8;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 1800ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* Report headline */
+    .report-headline {
+      font-family: var(--font-display);
+      font-style: italic;
+      font-size: clamp(22px, 3.5vw, 36px);
+      color: var(--text);
+      max-width: 640px;
+      margin: 0 auto;
+      line-height: 1.3;
+    }
+
+    /* Coherence map container */
+    .coherence-map {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      padding: 40px 32px;
+      overflow-x: auto;
+    }
+    .coherence-map__inner {
+      display: flex;
+      align-items: flex-start;
+      gap: 0;
+      min-width: fit-content;
+      margin: 0 auto;
+      padding: 8px 0;
+    }
+
+    /* Gap label */
+    .gap-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-align: center;
+      max-width: 80px;
+      line-height: 1.3;
+      padding-top: 4px;
+    }
+
+    /* Narrative card */
+    .narrative-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      padding: 36px 40px;
+      position: relative;
+    }
+    .narrative-quote {
+      font-family: var(--font-display);
+      font-size: 72px;
+      color: var(--gold);
+      line-height: 0.7;
+      margin-bottom: 20px;
+      opacity: 0.6;
+    }
+    .narrative-text {
+      font-size: 17px;
+      line-height: 1.75;
+      color: var(--text-soft);
+      font-family: var(--font-display);
+      font-style: italic;
+    }
+
+    /* Dimension cards grid */
+    .dimensions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    .dimension-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      padding: 24px;
+      transition: border-color var(--transition);
+    }
+    .dimension-card:hover { border-color: var(--border-hover); }
+    .dimension-card__header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 6px;
+    }
+    .dimension-card__name {
+      font-family: var(--font-display);
+      font-size: 17px;
+      color: var(--text);
+      line-height: 1.3;
+    }
+    .dimension-card__score {
+      font-family: var(--font-display);
+      font-size: 28px;
+      line-height: 1;
+      font-weight: 400;
+    }
+    .dimension-card__insight {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.65;
+      margin-top: 10px;
+    }
+
+    /* Focus / gap items */
+    .gap-item {
+      display: flex;
+      gap: 16px;
+      padding: 20px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .gap-item:last-child { border-bottom: none; }
+    .gap-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .gap-icon--warn { background: var(--terra-dim); }
+    .gap-icon--ok   { background: var(--sage-dim); }
+    .gap-item__title {
+      font-weight: 500;
+      font-size: 15px;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .gap-item__desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.65;
+    }
+
+    /* Section headings */
+    .report-section { padding: 60px 0; border-top: 1px solid var(--border); }
+    .report-section-title {
+      font-family: var(--font-display);
+      font-size: clamp(22px, 3vw, 30px);
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .report-section-sub {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 32px;
+    }
+
+    /* Actions */
+    .actions-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 48px 0;
+      border-top: 1px solid var(--border);
+      align-items: center;
+    }
+    .action-note {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-left: auto;
+    }
+    .action-note a { color: var(--gold); }
+
+    /* Skeleton loader */
+    .skeleton {
+      background: linear-gradient(90deg, var(--card) 25%, var(--surface) 50%, var(--card) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 8px;
+    }
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    @media (max-width: 768px) {
+      .report-hero { padding: 100px 0 60px; }
+      .narrative-card { padding: 28px 24px; }
+      .actions-bar { flex-direction: column; align-items: stretch; }
+      .action-note { margin-left: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── Navbar ─────────────────────────────────────────────────────────── -->
+<nav class="nav">
+  <div class="container flex items-center justify-between w-full" style="max-width:none;">
+    <div class="nav__logo">Emotional Gap Audit <span>·</span> Activate Vision</div>
+    <a href="index.html" class="btn btn--ghost btn--sm" style="font-size:12px;height:36px;">← New Audit</a>
+  </div>
+</nav>
+
+<!-- ─── Report Hero ─────────────────────────────────────────────────────── -->
+<section class="report-hero" id="report-hero">
+  <div class="report-hero__glow" id="score-glow"></div>
+  <div class="container">
+    <div class="eyebrow" style="margin-bottom:24px;">Your Emotional Coherence Report</div>
+
+    <!-- Score Ring -->
+    <div class="score-ring-wrap" style="width:160px;height:160px;margin:0 auto 32px;">
+      <svg class="score-ring-svg" width="160" height="160" viewBox="0 0 160 160">
+        <circle class="score-ring-track" cx="80" cy="80" r="68"/>
+        <circle class="score-ring-progress" id="score-ring-path" cx="80" cy="80" r="68"
+                stroke="#C9A24A"
+                stroke-dasharray="427.25"
+                stroke-dashoffset="427.25"/>
+      </svg>
+      <div class="score-ring-center">
+        <div class="score-ring-number" id="score-display">—</div>
+        <div class="score-ring-label">Score</div>
+      </div>
+    </div>
+
+    <!-- Headline -->
+    <div class="report-headline" id="report-headline" style="opacity:0;transition:opacity 600ms ease 1.2s;">
+      <!-- AI headline injected here -->
+    </div>
+  </div>
+</section>
+
+<!-- ─── Coherence Map ───────────────────────────────────────────────────── -->
+<section class="report-section">
+  <div class="container">
+    <div class="report-section-title">Coherence Map</div>
+    <p class="report-section-sub">Each touchpoint colored by emotional fidelity — green means the promise holds, gold means partial gap, red means the thread breaks.</p>
+    <div class="coherence-map">
+      <div class="coherence-map__inner" id="coherence-map"></div>
+    </div>
+
+    <!-- Legend -->
+    <div class="flex gap-24 mt-24" style="flex-wrap:wrap;">
+      <div class="flex items-center gap-8"><div style="width:10px;height:10px;border-radius:50%;background:var(--sage);"></div><span style="font-size:13px;color:var(--text-muted);">Promise held</span></div>
+      <div class="flex items-center gap-8"><div style="width:10px;height:10px;border-radius:50%;background:var(--gold);"></div><span style="font-size:13px;color:var(--text-muted);">Partial gap</span></div>
+      <div class="flex items-center gap-8"><div style="width:10px;height:10px;border-radius:50%;background:var(--terra);"></div><span style="font-size:13px;color:var(--text-muted);">Significant gap</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── AI Narrative ────────────────────────────────────────────────────── -->
+<section class="report-section" style="padding-top:0;border-top:none;">
+  <div class="container">
+    <div class="narrative-card">
+      <div class="narrative-quote">"</div>
+      <p class="narrative-text" id="narrative-text">Loading…</p>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Five Dimensions ─────────────────────────────────────────────────── -->
+<section class="report-section">
+  <div class="container">
+    <div class="report-section-title">Five Dimensions</div>
+    <p class="report-section-sub">A deeper view of where your journey succeeds and where it strains.</p>
+    <div class="dimensions-grid" id="dimensions-grid">
+      <!-- Injected by JS -->
+    </div>
+  </div>
+</section>
+
+<!-- ─── Where to focus ──────────────────────────────────────────────────── -->
+<section class="report-section">
+  <div class="container" style="max-width:720px;">
+    <div class="report-section-title">Where to focus next</div>
+    <p class="report-section-sub">Three precise areas that will move the needle most.</p>
+    <div class="card" id="gaps-list">
+      <!-- Injected by JS -->
+    </div>
+  </div>
+</section>
+
+<!-- ─── Actions ─────────────────────────────────────────────────────────── -->
+<div class="container">
+  <div class="actions-bar">
+    <button class="btn btn--primary" id="pdf-btn" onclick="downloadPdf()">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 12v2h12v-2M8 2v8M5 7l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Download PDF report
+    </button>
+    <a href="index.html" class="btn btn--ghost">Start a new audit</a>
+    <p class="action-note">Want a deeper analysis? Work with Niya at <a href="https://activate.vision" target="_blank" rel="noopener">activate.vision</a></p>
+  </div>
+</div>
+
+<!-- ─── Footer ─────────────────────────────────────────────────────────── -->
+<footer style="margin-top:0;">
+  <div class="container">
+    <div class="footer-inner">
+      <p class="footer-text">Built on the emotional intelligence framework of <a href="https://activate.vision" target="_blank" rel="noopener">Activate Vision</a></p>
+      <p class="footer-text">Powered by Claude AI</p>
+    </div>
+  </div>
+</footer>
+
+
+<script>
+// ─── Load audit data ─────────────────────────────────────────────────────────
+let auditData = null;
+
+async function loadAudit() {
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get('id');
+
+  // Try sessionStorage first (fresh from form)
+  const cached = sessionStorage.getItem('auditResult');
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached);
+      if (!id || parsed.id === id) {
+        auditData = parsed;
+        renderReport(auditData);
+        return;
+      }
+    } catch {}
+  }
+
+  // Fetch from server
+  if (id) {
+    try {
+      const res  = await fetch(`/api/audit/${id}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      auditData = data;
+      renderReport(auditData);
+    } catch (err) {
+      document.getElementById('report-headline').textContent = 'Report not found.';
+      document.getElementById('report-headline').style.opacity = '1';
+    }
+  } else {
+    document.getElementById('report-headline').textContent = 'No audit data found.';
+    document.getElementById('report-headline').style.opacity = '1';
+  }
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function renderReport(data) {
+  const r = data.result;
+
+  // Score ring animation
+  const score = r.overall_score;
+  const circumference = 427.25;
+  const offset = circumference - (score / 100) * circumference;
+  const ringPath = document.getElementById('score-ring-path');
+  const scoreColor = score >= 70 ? '#6B8F71' : score >= 45 ? '#C9A24A' : '#C4694A';
+  ringPath.style.stroke = scoreColor;
+
+  // Set glow color behind ring
+  const glowEl = document.getElementById('score-glow');
+  glowEl.style.background = `radial-gradient(circle, ${scoreColor}18 0%, transparent 65%)`;
+
+  // Animate score ring + counter
+  let displayed = 0;
+  const scoreDisplay = document.getElementById('score-display');
+  setTimeout(() => {
+    ringPath.style.strokeDashoffset = offset;
+    const tick = setInterval(() => {
+      displayed = Math.min(displayed + 2, score);
+      scoreDisplay.textContent = displayed;
+      if (displayed >= score) clearInterval(tick);
+    }, 25);
+  }, 300);
+
+  // Headline
+  const headlineEl = document.getElementById('report-headline');
+  headlineEl.textContent = `"${r.headline}"`;
+  headlineEl.style.opacity = '1';
+
+  // Narrative
+  document.getElementById('narrative-text').textContent = r.narrative;
+
+  // Coherence map
+  renderCoherenceMap(r.coherence_map || []);
+
+  // Dimensions
+  renderDimensions(r.dimensions || []);
+
+  // Gaps
+  renderGaps(r.gaps || []);
+}
+
+// ─── Coherence map ────────────────────────────────────────────────────────────
+function renderCoherenceMap(nodes) {
+  const container = document.getElementById('coherence-map');
+  container.innerHTML = '';
+
+  nodes.forEach((node, i) => {
+    const status = node.status;
+    // Node
+    const nodeEl = document.createElement('div');
+    nodeEl.className = 'coherence-node';
+    nodeEl.style.minWidth = '80px';
+
+    const circle = document.createElement('div');
+    circle.className = `coherence-node__circle coherence-node__circle--${status}`;
+    circle.textContent = node.touchpoint.length > 14 ? node.touchpoint.substring(0, 13) + '…' : node.touchpoint;
+
+    const label = document.createElement('div');
+    label.className = 'coherence-node__label';
+    label.textContent = node.touchpoint;
+
+    // Gap label below connector (if not last)
+    nodeEl.appendChild(circle);
+    nodeEl.appendChild(label);
+    container.appendChild(nodeEl);
+
+    // Animate in
+    setTimeout(() => circle.classList.add('visible'), 200 + i * 200);
+
+    // Connector + gap label
+    if (i < nodes.length - 1) {
+      const connWrap = document.createElement('div');
+      connWrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;padding-top:20px;';
+
+      const conn = document.createElement('div');
+      conn.className = 'coherence-connector';
+      conn.style.cssText = 'width:48px;';
+      const line = document.createElement('div');
+      line.className = 'coherence-connector__line';
+      line.style.width = '100%';
+      conn.appendChild(line);
+
+      if (node.gap_to_next) {
+        const gapLabel = document.createElement('div');
+        gapLabel.className = 'gap-label';
+        gapLabel.textContent = node.gap_to_next;
+        connWrap.appendChild(conn);
+        connWrap.appendChild(gapLabel);
+      } else {
+        connWrap.appendChild(conn);
+      }
+
+      setTimeout(() => conn.classList.add('visible'), 400 + i * 200);
+      container.appendChild(connWrap);
+    }
+  });
+}
+
+// ─── Dimensions ──────────────────────────────────────────────────────────────
+function renderDimensions(dimensions) {
+  const grid = document.getElementById('dimensions-grid');
+  grid.innerHTML = dimensions.map((d, i) => {
+    const scoreColor = d.rating === 'strong' ? 'var(--sage)' : d.rating === 'medium' ? 'var(--gold)' : 'var(--terra)';
+    return `
+      <div class="dimension-card" style="--delay:${i * 100}ms;">
+        <div class="dimension-card__header">
+          <div class="dimension-card__name">${d.name}</div>
+          <div class="dimension-card__score" style="color:${scoreColor};">${d.score}</div>
+        </div>
+        <div class="dimension-bar">
+          <div class="dimension-bar__fill dimension-bar__fill--${d.rating}"
+               id="bar-${i}"
+               style="width:0%"></div>
+        </div>
+        <span class="badge badge--${d.rating}">${d.rating}</span>
+        <p class="dimension-card__insight">${d.insight}</p>
+      </div>
+    `;
+  }).join('');
+
+  // Animate bars after paint
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      dimensions.forEach((d, i) => {
+        const bar = document.getElementById('bar-' + i);
+        if (bar) bar.style.width = d.score + '%';
+      });
+    }, 600);
+  });
+}
+
+// ─── Gaps ─────────────────────────────────────────────────────────────────────
+function renderGaps(gaps) {
+  document.getElementById('gaps-list').innerHTML = gaps.map(g => `
+    <div class="gap-item">
+      <div class="gap-icon gap-icon--${g.type}">
+        ${g.type === 'warn' ? '⚠' : '✓'}
+      </div>
+      <div>
+        <div class="gap-item__title">${g.title}</div>
+        <p class="gap-item__desc">${g.description}</p>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ─── PDF download ─────────────────────────────────────────────────────────────
+async function downloadPdf() {
+  const btn = document.getElementById('pdf-btn');
+  btn.disabled = true;
+  btn.textContent = 'Generating PDF…';
+
+  try {
+    const res = await fetch('/api/pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auditId: auditData?.id, audit: auditData })
+    });
+    if (!res.ok) throw new Error('PDF generation failed');
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = `emotional-gap-audit-${(auditData?.brand || 'report').toLowerCase().replace(/\s+/g, '-')}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    alert('PDF download failed: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 12v2h12v-2M8 2v8M5 7l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Download PDF report`;
+  }
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+loadAudit();
+</script>
+
+</body>
+</html>

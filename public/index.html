@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Emotional Gap Audit — Activate Vision</title>
+  <meta name="description" content="Discover where your brand's emotional promise breaks down. AI-powered customer journey analysis by Activate Vision." />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;1,9..144,300;1,9..144,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css">
+
+  <style>
+    /* Page-specific tweaks */
+    .hero-ambient {
+      position: absolute;
+      top: -200px;
+      left: -100px;
+      width: 700px;
+      height: 700px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(201,162,74,0.07) 0%, transparent 65%);
+      pointer-events: none;
+      animation: ambient-float 8s ease-in-out infinite;
+    }
+    .hero-ambient-2 {
+      position: absolute;
+      bottom: -100px;
+      right: -200px;
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(107,143,113,0.05) 0%, transparent 65%);
+      pointer-events: none;
+      animation: ambient-float 11s ease-in-out infinite reverse;
+    }
+    @keyframes ambient-float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(20px, -30px) scale(1.05); }
+    }
+
+    .section-title {
+      font-family: var(--font-display);
+      font-size: clamp(28px, 4vw, 42px);
+      color: var(--text);
+      margin-bottom: 12px;
+    }
+    .section-sub {
+      font-size: 16px;
+      color: var(--text-muted);
+      max-width: 500px;
+    }
+
+    /* Touchpoint inline input row */
+    .tp-input-row {
+      display: flex;
+      gap: 10px;
+      align-items: stretch;
+      margin-bottom: 8px;
+    }
+    .tp-input-row .form-input { flex: 1; }
+
+    /* Feeling pair */
+    .feeling-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+    .feeling-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--gold);
+      flex-shrink: 0;
+    }
+    .feeling-pair-title {
+      font-family: var(--font-display);
+      font-size: 19px;
+      color: var(--text);
+    }
+    .feeling-pair { display: none; }
+    .feeling-pair.active { display: block; animation: step-in 300ms ease; }
+
+    .tp-progress {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── Navbar ─────────────────────────────────────────────────────────── -->
+<nav class="nav">
+  <div class="container flex items-center justify-between w-full" style="max-width:none;">
+    <div class="nav__logo">Emotional Gap Audit <span>·</span> Activate Vision</div>
+    <a href="admin.html" class="btn btn--ghost btn--sm" style="font-size:12px;height:36px;">Dashboard</a>
+  </div>
+</nav>
+
+<!-- ─── Hero ───────────────────────────────────────────────────────────── -->
+<section class="hero" id="home">
+  <div class="hero-ambient"></div>
+  <div class="hero-ambient-2"></div>
+  <div class="container">
+    <div class="hero__inner">
+      <div class="eyebrow">A tool by Activate Vision</div>
+      <h1 class="hero__headline">Does your brand keep its emotional promise?</h1>
+      <p class="hero__sub">Most brands make a feeling in the first moment. Few carry it all the way through. Find out where yours breaks.</p>
+      <button class="btn btn--primary" id="open-form-btn" onclick="openForm()">
+        Audit your customer journey
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- ─── How it works ───────────────────────────────────────────────────── -->
+<section class="how-it-works">
+  <div class="container">
+    <div class="eyebrow" style="margin-bottom:16px;">How it works</div>
+    <h2 class="section-title">Three steps to clarity</h2>
+    <p class="section-sub">No jargon. No fluff. Just the honest truth about where your brand experience breaks down.</p>
+
+    <div class="step-grid">
+      <div class="step-card">
+        <div class="step-number">01</div>
+        <h3>Map your journey</h3>
+        <p>Describe the key touchpoints your customers move through — from first impression to final delivery.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">02</div>
+        <h3>AI reads the gaps</h3>
+        <p>Our model analyzes the delta between the feeling you intend to create and what customers actually feel.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">03</div>
+        <h3>Get your coherence map</h3>
+        <p>A visual report showing exactly where the emotional thread breaks — and where to focus first.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Social proof ───────────────────────────────────────────────────── -->
+<section class="social-proof">
+  <div class="container">
+    <p class="social-proof__label">Used by founders, consultants, and brand strategists</p>
+    <div class="client-strip">
+      <div class="client-name">Microsoft</div>
+      <div class="client-name">Visa</div>
+      <div class="client-name">eBay</div>
+      <div class="client-name">Activate Vision</div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Footer ─────────────────────────────────────────────────────────── -->
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <p class="footer-text">Built on the emotional intelligence framework of <a href="https://activate.vision" target="_blank" rel="noopener">Activate Vision</a></p>
+      <p class="footer-text">Powered by Claude AI</p>
+    </div>
+  </div>
+</footer>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- MULTI-STEP FORM OVERLAY                                                -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="form-overlay" id="form-overlay">
+  <div class="form-panel" id="form-panel">
+    <button class="form-close" onclick="closeForm()" aria-label="Close">&times;</button>
+
+    <!-- Progress bar -->
+    <div style="margin-bottom:28px;">
+      <div class="flex justify-between items-center mb-8">
+        <span class="eyebrow" id="step-label">Step 1 of 3</span>
+        <span style="font-size:12px;color:var(--text-muted);" id="step-pct">0%</span>
+      </div>
+      <div class="progress-bar"><div class="progress-bar__fill" id="progress-fill" style="width:0%"></div></div>
+    </div>
+
+    <!-- ── Step 1: About you ── -->
+    <div class="form-step active" id="step-1">
+      <h2 class="form-step-title">Let's start with you.</h2>
+      <p class="form-step-sub">We'll use this to personalize your report.</p>
+
+      <div class="form-group">
+        <label class="form-label" for="f-name">Your name</label>
+        <input class="form-input" id="f-name" type="text" placeholder="Your name" autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="f-brand">Brand or business name</label>
+        <input class="form-input" id="f-brand" type="text" placeholder="e.g. Studio Mara">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="f-type">Type of business</label>
+        <select class="form-select" id="f-type">
+          <option value="" disabled selected>Select one…</option>
+          <option value="Startup">Startup</option>
+          <option value="Consultancy">Consultancy</option>
+          <option value="Agency">Agency</option>
+          <option value="E-commerce">E-commerce</option>
+          <option value="Service business">Service business</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-nav">
+        <button class="btn btn--primary btn--full" onclick="goStep(2)">Next →</button>
+      </div>
+    </div>
+
+    <!-- ── Step 2: Touchpoints ── -->
+    <div class="form-step" id="step-2">
+      <h2 class="form-step-title">Map your customer journey.</h2>
+      <p class="form-step-sub">List the key moments your customer moves through — from first contact to delivery. Add between 3 and 6 touchpoints.</p>
+
+      <div id="touchpoints-list"></div>
+
+      <div class="tp-input-row" id="tp-add-row">
+        <input class="form-input" id="tp-input" type="text" placeholder="e.g. Instagram post, Discovery call, Onboarding…" maxlength="64">
+        <button class="btn btn--ghost btn--sm" onclick="addTouchpoint()" style="flex-shrink:0;height:auto;padding:0 18px;">Add</button>
+      </div>
+
+      <button class="add-touchpoint-btn" id="add-tp-btn" onclick="focusTpInput()">
+        + Add another touchpoint
+      </button>
+
+      <div class="form-nav">
+        <button class="btn btn--ghost" onclick="goStep(1)" style="flex:0 0 auto;">← Back</button>
+        <button class="btn btn--primary btn--full" onclick="goStep(3)">Next →</button>
+      </div>
+    </div>
+
+    <!-- ── Step 3: Feelings (per touchpoint) ── -->
+    <div class="form-step" id="step-3">
+      <p class="tp-progress" id="tp-progress-label">Touchpoint 1 of 3</p>
+
+      <div id="feelings-container"></div>
+
+      <div class="form-nav" id="feelings-nav">
+        <button class="btn btn--ghost" id="feelings-back-btn" onclick="feelingBack()">← Back</button>
+        <button class="btn btn--primary btn--full" id="feelings-next-btn" onclick="feelingNext()">Next →</button>
+      </div>
+    </div>
+
+    <!-- ── Step 4: Submitting (inline loading) ── -->
+    <div class="form-step" id="step-4">
+      <div style="text-align:center;padding:40px 0;">
+        <div class="loading-orb" style="margin:0 auto 32px;">
+          <div class="loading-orb__ring"></div>
+          <div class="loading-orb__ring"></div>
+          <div class="loading-orb__ring"></div>
+          <div class="loading-orb__ring"></div>
+          <div class="loading-orb__core"></div>
+        </div>
+        <div class="loading-text" id="loading-text">
+          <span id="lt-0">Reading your intention...</span>
+          <span id="lt-1">Mapping the emotional thread...</span>
+          <span id="lt-2">Locating the fracture points...</span>
+          <span id="lt-3">Building your coherence map...</span>
+        </div>
+        <p style="font-size:13px;color:var(--text-muted);margin-top:20px;">This takes 10–30 seconds</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<script>
+// ─── State ──────────────────────────────────────────────────────────────────
+let touchpoints = []; // {name, intended_feeling, actual_feeling}
+let currentStep = 1;
+let currentFeeling = 0;
+
+// ─── Form open/close ─────────────────────────────────────────────────────────
+function openForm() {
+  document.getElementById('form-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeForm() {
+  document.getElementById('form-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// Close on backdrop click
+document.getElementById('form-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('form-overlay')) closeForm();
+});
+
+// ─── Step navigation ─────────────────────────────────────────────────────────
+function setProgress(step) {
+  const labels = ['Step 1 of 3', 'Step 2 of 3', 'Step 3 of 3', 'Analyzing…'];
+  const pcts   = ['33%', '66%', '90%', '100%'];
+  document.getElementById('step-label').textContent = labels[step - 1] || 'Analyzing…';
+  document.getElementById('step-pct').textContent = pcts[step - 1] || '100%';
+  document.getElementById('progress-fill').style.width = pcts[step - 1] || '100%';
+}
+
+function showStep(n) {
+  document.querySelectorAll('.form-step').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById('step-' + n);
+  if (el) el.classList.add('active');
+  currentStep = n;
+  setProgress(n);
+  document.getElementById('form-panel').scrollTop = 0;
+}
+
+function goStep(n) {
+  if (n === 2) {
+    // Validate step 1
+    const name  = document.getElementById('f-name').value.trim();
+    const brand = document.getElementById('f-brand').value.trim();
+    const type  = document.getElementById('f-type').value;
+    if (!name || !brand || !type) {
+      alert('Please fill in all fields to continue.');
+      return;
+    }
+  }
+  if (n === 3) {
+    // Validate touchpoints
+    if (touchpoints.length < 3) {
+      alert('Please add at least 3 touchpoints to continue.');
+      return;
+    }
+    renderFeelings();
+    showStep(3);
+    return;
+  }
+  showStep(n);
+}
+
+// ─── Touchpoints ─────────────────────────────────────────────────────────────
+function renderTouchpointList() {
+  const list = document.getElementById('touchpoints-list');
+  list.innerHTML = touchpoints.map((tp, i) => `
+    <div class="touchpoint-item">
+      <span style="width:22px;height:22px;border-radius:50%;background:var(--gold);color:#0D0D0D;
+                   font-size:11px;font-weight:700;display:flex;align-items:center;
+                   justify-content:center;flex-shrink:0;">${i+1}</span>
+      <span class="touchpoint-item__name">${tp.name}</span>
+      <button class="touchpoint-item__remove" onclick="removeTouchpoint(${i})" aria-label="Remove">×</button>
+    </div>
+  `).join('');
+
+  const addBtn = document.getElementById('add-tp-btn');
+  const addRow = document.getElementById('tp-add-row');
+  if (touchpoints.length >= 6) {
+    addBtn.disabled = true;
+    addRow.style.display = 'none';
+  } else {
+    addBtn.disabled = false;
+    addRow.style.display = 'flex';
+  }
+}
+
+function addTouchpoint() {
+  const input = document.getElementById('tp-input');
+  const name  = input.value.trim();
+  if (!name) return;
+  if (touchpoints.length >= 6) return;
+  touchpoints.push({ name, intended_feeling: '', actual_feeling: '' });
+  input.value = '';
+  renderTouchpointList();
+  input.focus();
+}
+
+function removeTouchpoint(i) {
+  touchpoints.splice(i, 1);
+  renderTouchpointList();
+}
+
+function focusTpInput() {
+  document.getElementById('tp-input').focus();
+}
+
+// Allow Enter to add
+document.getElementById('tp-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); addTouchpoint(); }
+});
+
+renderTouchpointList();
+
+// ─── Feelings ─────────────────────────────────────────────────────────────────
+function renderFeelings() {
+  currentFeeling = 0;
+  const container = document.getElementById('feelings-container');
+  container.innerHTML = touchpoints.map((tp, i) => `
+    <div class="feeling-pair ${i === 0 ? 'active' : ''}" id="fp-${i}">
+      <div class="feeling-header">
+        <div class="feeling-dot"></div>
+        <div class="feeling-pair-title">${tp.name}</div>
+      </div>
+      <div class="form-group mt-16">
+        <label class="form-label">What feeling do you <em>want</em> someone to have here?</label>
+        <input class="form-input" id="fi-${i}" type="text" placeholder="e.g. Curious, inspired, reassured…"
+               value="${tp.intended_feeling}" oninput="touchpoints[${i}].intended_feeling=this.value">
+      </div>
+      <div class="form-group">
+        <label class="form-label">What feeling do you think they <em>actually</em> have?</label>
+        <input class="form-input" id="fa-${i}" type="text" placeholder="e.g. Confused, overwhelmed, skeptical…"
+               value="${tp.actual_feeling}" oninput="touchpoints[${i}].actual_feeling=this.value">
+      </div>
+    </div>
+  `).join('');
+
+  updateFeelingNav();
+}
+
+function updateFeelingNav() {
+  const total = touchpoints.length;
+  document.getElementById('tp-progress-label').textContent = `Touchpoint ${currentFeeling + 1} of ${total}`;
+  const nextBtn = document.getElementById('feelings-next-btn');
+  const backBtn = document.getElementById('feelings-back-btn');
+  nextBtn.textContent = currentFeeling === total - 1 ? 'Analyze my journey →' : 'Next →';
+  backBtn.textContent = currentFeeling === 0 ? '← Back' : '← Previous';
+}
+
+function feelingBack() {
+  if (currentFeeling === 0) {
+    showStep(2);
+    return;
+  }
+  document.getElementById('fp-' + currentFeeling).classList.remove('active');
+  currentFeeling--;
+  document.getElementById('fp-' + currentFeeling).classList.add('active');
+  updateFeelingNav();
+}
+
+function feelingNext() {
+  const tp = touchpoints[currentFeeling];
+  if (!tp.intended_feeling.trim() || !tp.actual_feeling.trim()) {
+    alert('Please describe both feelings before continuing.');
+    return;
+  }
+
+  if (currentFeeling < touchpoints.length - 1) {
+    document.getElementById('fp-' + currentFeeling).classList.remove('active');
+    currentFeeling++;
+    document.getElementById('fp-' + currentFeeling).classList.add('active');
+    updateFeelingNav();
+    document.getElementById('form-panel').scrollTop = 0;
+  } else {
+    submitAudit();
+  }
+}
+
+// ─── Submit ───────────────────────────────────────────────────────────────────
+async function submitAudit() {
+  showStep(4);
+  startLoadingText();
+
+  const payload = {
+    name:          document.getElementById('f-name').value.trim(),
+    brand:         document.getElementById('f-brand').value.trim(),
+    business_type: document.getElementById('f-type').value,
+    touchpoints,
+    source: 'public'
+  };
+
+  try {
+    const res  = await fetch('/api/audit', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Server error');
+
+    // Store in sessionStorage for results page
+    sessionStorage.setItem('auditResult', JSON.stringify(data));
+
+    // Minimum 4-second loading experience
+    await wait(4000);
+    window.location.href = `results.html?id=${data.id}`;
+  } catch (err) {
+    alert('Something went wrong: ' + err.message);
+    showStep(3);
+  }
+}
+
+// ─── Loading text animation ───────────────────────────────────────────────────
+const loadingMessages = [
+  'Reading your intention...',
+  'Mapping the emotional thread...',
+  'Locating the fracture points...',
+  'Building your coherence map...'
+];
+let loadingTimer = null;
+
+function startLoadingText() {
+  let i = 0;
+  const spans = document.querySelectorAll('.loading-text span');
+  spans.forEach(s => s.classList.remove('active'));
+  spans[0].classList.add('active');
+
+  loadingTimer = setInterval(() => {
+    spans[i].classList.remove('active');
+    i = (i + 1) % spans.length;
+    spans[i].classList.add('active');
+  }, 2200);
+}
+
+function wait(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+</script>
+
+</body>
+</html>

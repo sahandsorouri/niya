@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — Emotional Gap Audit</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;1,9..144,300;1,9..144,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+
+  <style>
+    /* Login screen */
+    .login-screen {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+    .login-glow {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(201,162,74,0.06) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border-hover);
+      border-radius: 24px;
+      padding: 48px 40px;
+      width: 100%;
+      max-width: 420px;
+      position: relative;
+      z-index: 1;
+    }
+    .login-eyebrow { margin-bottom: 24px; }
+    .login-title {
+      font-family: var(--font-display);
+      font-size: 28px;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .login-sub { font-size: 14px; color: var(--text-muted); margin-bottom: 32px; }
+    .login-error {
+      background: var(--terra-dim);
+      border: 1px solid rgba(196,105,74,0.2);
+      border-radius: 10px;
+      color: var(--terra);
+      font-size: 13px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    /* Dashboard */
+    .dashboard-screen { display: none; }
+
+    /* Tab content */
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Audit row expand */
+    .audit-row { cursor: pointer; }
+    .audit-expand {
+      display: none;
+      background: var(--surface);
+    }
+    .audit-expand.open { display: table-row; }
+    .audit-expand td { padding: 20px 16px 28px; }
+
+    /* Notes textarea */
+    .note-wrap {
+      margin-top: 12px;
+    }
+
+    /* Source badge */
+    .source-badge {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .source-badge--public    { background: var(--sage-dim); color: var(--sage); }
+    .source-badge--dashboard { background: var(--gold-dim); color: var(--gold); }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 80px 40px;
+      color: var(--text-muted);
+    }
+    .empty-state__icon { font-size: 40px; margin-bottom: 16px; opacity: 0.3; }
+    .empty-state__title {
+      font-family: var(--font-display);
+      font-size: 20px;
+      color: var(--text-soft);
+      margin-bottom: 8px;
+    }
+
+    /* Form step panel (same as index.html but inside admin) */
+    .admin-form-panel {
+      background: var(--surface);
+      border: 1px solid var(--border-hover);
+      border-radius: var(--radius-card);
+      padding: 36px;
+      max-width: 680px;
+    }
+    .admin-form-panel .form-step { display: none; }
+    .admin-form-panel .form-step.active { display: block; animation: step-in 300ms ease; }
+
+    /* Preview mini-card */
+    .mini-preview {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 12px;
+    }
+    .mini-preview__header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    .mini-preview__name { font-weight: 500; font-size: 15px; color: var(--text); }
+    .mini-preview__brand { font-size: 13px; color: var(--text-muted); }
+    .mini-preview__score {
+      font-family: var(--font-display);
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    @media (max-width: 768px) {
+      .admin-form-panel { padding: 24px 20px; }
+      .login-card { padding: 36px 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- LOGIN SCREEN                                                             -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<div class="login-screen" id="login-screen">
+  <div class="login-glow"></div>
+  <div class="login-card">
+    <div class="eyebrow login-eyebrow">Activate Vision</div>
+    <h1 class="login-title">Dashboard</h1>
+    <p class="login-sub">Niya's private command center for the Emotional Gap Audit.</p>
+
+    <div class="login-error" id="login-error">Incorrect password. Please try again.</div>
+
+    <form onsubmit="doLogin(event)">
+      <div class="form-group">
+        <label class="form-label" for="login-pw">Password</label>
+        <input class="form-input" id="login-pw" type="password" placeholder="Enter your password" autocomplete="current-password">
+      </div>
+      <button class="btn btn--primary btn--full" type="submit" style="margin-top:8px;">Enter dashboard →</button>
+    </form>
+
+    <p style="margin-top:20px;font-size:12px;color:var(--text-muted);text-align:center;">
+      <a href="index.html">← Back to public tool</a>
+    </p>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- DASHBOARD                                                                -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<div class="dashboard-screen admin-layout" id="dashboard-screen">
+
+  <!-- Sidebar -->
+  <aside class="admin-sidebar">
+    <div class="sidebar-logo">
+      <div class="name">Niya C Sisk</div>
+      <div class="sub">Activate Vision</div>
+    </div>
+    <nav class="sidebar-nav" id="sidebar-nav">
+      <a href="#" onclick="showTab('overview')"  class="active" id="tab-link-overview">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1.5" stroke="currentColor" stroke-width="1.3"/><rect x="9" y="2" width="5" height="5" rx="1.5" stroke="currentColor" stroke-width="1.3"/><rect x="2" y="9" width="5" height="5" rx="1.5" stroke="currentColor" stroke-width="1.3"/><rect x="9" y="9" width="5" height="5" rx="1.5" stroke="currentColor" stroke-width="1.3"/></svg>
+        Overview
+      </a>
+      <a href="#" onclick="showTab('audits')" id="tab-link-audits">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 4h10M3 8h10M3 12h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        All Audits
+      </a>
+      <a href="#" onclick="showTab('new')" id="tab-link-new">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M8 5v6M5 8h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        New Audit
+      </a>
+      <a href="#" onclick="showTab('settings')" id="tab-link-settings">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.5v1.2M8 13.3v1.2M1.5 8h1.2M13.3 8h1.2M3.4 3.4l.85.85M11.75 11.75l.85.85M3.4 12.6l.85-.85M11.75 4.25l.85-.85" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Settings
+      </a>
+      <div style="flex:1;"></div>
+      <a href="#" onclick="logout()" style="margin-top:auto;color:var(--terra)!important;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 8H3M6 5l-3 3 3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 3h4a1 1 0 011 1v8a1 1 0 01-1 1H8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Sign out
+      </a>
+    </nav>
+  </aside>
+
+  <!-- Main area -->
+  <main class="admin-main">
+
+    <!-- ── Overview tab ── -->
+    <div class="tab-content active" id="tab-overview">
+      <div class="mb-32">
+        <div class="eyebrow mb-8">Dashboard</div>
+        <h1 style="font-family:var(--font-display);font-size:32px;color:var(--text);">Overview</h1>
+      </div>
+
+      <div class="stat-grid" id="stat-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="stat-total">—</div>
+          <div class="stat-label">Total audits</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-avg">—</div>
+          <div class="stat-label">Avg. coherence score</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-this-week">—</div>
+          <div class="stat-label">This week</div>
+        </div>
+      </div>
+
+      <h2 style="font-family:var(--font-display);font-size:20px;color:var(--text);margin-bottom:16px;">Latest audits</h2>
+      <div id="recent-audits">
+        <div style="color:var(--text-muted);font-size:14px;">Loading…</div>
+      </div>
+    </div>
+
+    <!-- ── All Audits tab ── -->
+    <div class="tab-content" id="tab-audits">
+      <div class="flex justify-between items-center mb-32" style="flex-wrap:wrap;gap:16px;">
+        <div>
+          <div class="eyebrow mb-8">Dashboard</div>
+          <h1 style="font-family:var(--font-display);font-size:32px;color:var(--text);">All Audits</h1>
+        </div>
+        <div style="display:flex;gap:12px;">
+          <button class="btn btn--ghost btn--sm" onclick="exportJson()">Export JSON</button>
+        </div>
+      </div>
+
+      <div id="audits-table-wrap">
+        <div style="color:var(--text-muted);font-size:14px;">Loading…</div>
+      </div>
+    </div>
+
+    <!-- ── New Audit tab ── -->
+    <div class="tab-content" id="tab-new">
+      <div class="mb-32">
+        <div class="eyebrow mb-8">Dashboard</div>
+        <h1 style="font-family:var(--font-display);font-size:32px;color:var(--text);">New Audit</h1>
+        <p style="color:var(--text-muted);font-size:14px;margin-top:8px;">Run an audit on behalf of a client.</p>
+      </div>
+
+      <div class="admin-form-panel">
+        <!-- Progress -->
+        <div style="margin-bottom:28px;">
+          <div class="flex justify-between items-center mb-8">
+            <span class="eyebrow" id="adm-step-label">Step 1 of 3</span>
+            <span style="font-size:12px;color:var(--text-muted);" id="adm-step-pct">33%</span>
+          </div>
+          <div class="progress-bar"><div class="progress-bar__fill" id="adm-progress-fill" style="width:33%"></div></div>
+        </div>
+
+        <!-- Step 1 -->
+        <div class="form-step active" id="adm-step-1">
+          <h2 class="form-step-title">About the client.</h2>
+          <p class="form-step-sub">Fill in basic details about this audit.</p>
+
+          <div class="form-group">
+            <label class="form-label">Client name (internal)</label>
+            <input class="form-input" id="adm-internal-name" type="text" placeholder="e.g. Mara Liu (confidential)">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Brand or business name</label>
+            <input class="form-input" id="adm-brand" type="text" placeholder="e.g. Studio Mara">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Type of business</label>
+            <select class="form-select" id="adm-type">
+              <option value="" disabled selected>Select one…</option>
+              <option value="Startup">Startup</option>
+              <option value="Consultancy">Consultancy</option>
+              <option value="Agency">Agency</option>
+              <option value="E-commerce">E-commerce</option>
+              <option value="Service business">Service business</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Niya's notes (private, not shown to client)</label>
+            <textarea class="form-textarea" id="adm-notes" placeholder="Context, observations, background…"></textarea>
+          </div>
+          <div class="form-nav">
+            <button class="btn btn--primary btn--full" onclick="admGoStep(2)">Next →</button>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="form-step" id="adm-step-2">
+          <h2 class="form-step-title">Map the journey.</h2>
+          <p class="form-step-sub">Add between 3 and 6 touchpoints in the client's journey.</p>
+
+          <div id="adm-touchpoints-list"></div>
+          <div class="tp-input-row" id="adm-tp-add-row">
+            <input class="form-input" id="adm-tp-input" type="text" placeholder="e.g. Instagram post, Discovery call…" maxlength="64">
+            <button class="btn btn--ghost btn--sm" onclick="admAddTp()" style="flex-shrink:0;height:auto;padding:0 18px;">Add</button>
+          </div>
+          <button class="add-touchpoint-btn" id="adm-add-tp-btn" onclick="document.getElementById('adm-tp-input').focus()">
+            + Add another touchpoint
+          </button>
+
+          <div class="form-nav">
+            <button class="btn btn--ghost" onclick="admGoStep(1)">← Back</button>
+            <button class="btn btn--primary btn--full" onclick="admGoStep(3)">Next →</button>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="form-step" id="adm-step-3">
+          <p class="tp-progress" id="adm-tp-progress">Touchpoint 1 of 3</p>
+          <div id="adm-feelings-container"></div>
+          <div class="form-nav" id="adm-feelings-nav">
+            <button class="btn btn--ghost" id="adm-feelings-back" onclick="admFeelingBack()">← Back</button>
+            <button class="btn btn--primary btn--full" id="adm-feelings-next" onclick="admFeelingNext()">Next →</button>
+          </div>
+        </div>
+
+        <!-- Step 4: submitting -->
+        <div class="form-step" id="adm-step-4">
+          <div style="text-align:center;padding:40px 0;">
+            <div class="loading-orb" style="margin:0 auto 32px;">
+              <div class="loading-orb__ring"></div>
+              <div class="loading-orb__ring"></div>
+              <div class="loading-orb__ring"></div>
+              <div class="loading-orb__ring"></div>
+              <div class="loading-orb__core"></div>
+            </div>
+            <div class="loading-text">
+              <span id="adm-lt-0" class="active">Analyzing the journey…</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── Settings tab ── -->
+    <div class="tab-content" id="tab-settings">
+      <div class="mb-32">
+        <div class="eyebrow mb-8">Dashboard</div>
+        <h1 style="font-family:var(--font-display);font-size:32px;color:var(--text);">Settings</h1>
+      </div>
+
+      <div class="card" style="max-width:480px;margin-bottom:24px;">
+        <h2 style="font-family:var(--font-display);font-size:20px;margin-bottom:20px;">Change password</h2>
+        <div class="form-group">
+          <label class="form-label">Current password</label>
+          <input class="form-input" type="password" placeholder="••••••••••">
+        </div>
+        <div class="form-group">
+          <label class="form-label">New password</label>
+          <input class="form-input" type="password" placeholder="••••••••••">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Confirm new password</label>
+          <input class="form-input" type="password" placeholder="••••••••••">
+        </div>
+        <button class="btn btn--ghost" style="width:100%;">Update password</button>
+        <p style="font-size:12px;color:var(--text-muted);margin-top:12px;">Password management is handled server-side. Contact your developer to apply changes.</p>
+      </div>
+
+      <div class="card" style="max-width:480px;">
+        <h2 style="font-family:var(--font-display);font-size:20px;margin-bottom:12px;">Export data</h2>
+        <p style="font-size:14px;color:var(--text-muted);margin-bottom:20px;">Download all audit data as a JSON file for your records.</p>
+        <button class="btn btn--primary" onclick="exportJson()">Export all audits as JSON</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+
+<!-- ── Audit detail modal ── -->
+<div class="modal-overlay" id="detail-modal">
+  <div class="modal">
+    <div class="flex justify-between items-center mb-24">
+      <h2 style="font-family:var(--font-display);font-size:22px;">Audit Detail</h2>
+      <button class="icon-btn" onclick="closeModal()" aria-label="Close">×</button>
+    </div>
+    <div id="modal-content"><!-- injected --></div>
+  </div>
+</div>
+
+
+<script>
+const ADMIN_PW = 'NiyaAV2026!';
+let allAudits   = [];
+let admTps      = [];
+let admCurrent  = 0;
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+function doLogin(e) {
+  e.preventDefault();
+  const pw = document.getElementById('login-pw').value;
+  if (pw === ADMIN_PW) {
+    sessionStorage.setItem('adminAuth', 'true');
+    showDashboard();
+  } else {
+    document.getElementById('login-error').style.display = 'block';
+    document.getElementById('login-pw').value = '';
+  }
+}
+
+function logout() {
+  sessionStorage.removeItem('adminAuth');
+  location.reload();
+}
+
+function showDashboard() {
+  document.getElementById('login-screen').style.display  = 'none';
+  document.getElementById('dashboard-screen').style.display = 'flex';
+  loadAudits();
+}
+
+// Check auth on load
+if (sessionStorage.getItem('adminAuth') === 'true') {
+  showDashboard();
+}
+
+// ─── Tabs ─────────────────────────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.sidebar-nav a').forEach(a => a.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.getElementById('tab-link-' + name).classList.add('active');
+  return false;
+}
+
+// ─── Load audits from API ─────────────────────────────────────────────────────
+async function loadAudits() {
+  try {
+    const res  = await fetch('/api/audits', { headers: { 'x-admin-password': ADMIN_PW } });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    allAudits = data;
+    renderOverview();
+    renderAuditsTable();
+  } catch (err) {
+    console.error('Load audits error:', err);
+  }
+}
+
+// ─── Overview ─────────────────────────────────────────────────────────────────
+function renderOverview() {
+  document.getElementById('stat-total').textContent = allAudits.length;
+
+  if (allAudits.length > 0) {
+    const avg = Math.round(allAudits.reduce((s, a) => s + (a.result?.overall_score || 0), 0) / allAudits.length);
+    document.getElementById('stat-avg').textContent = avg;
+  } else {
+    document.getElementById('stat-avg').textContent = '—';
+  }
+
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const thisWeek = allAudits.filter(a => new Date(a.created_at).getTime() > weekAgo).length;
+  document.getElementById('stat-this-week').textContent = thisWeek;
+
+  // Recent 3
+  const recent = allAudits.slice(0, 3);
+  const el = document.getElementById('recent-audits');
+  if (recent.length === 0) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-state__icon">○</div><div class="empty-state__title">No audits yet</div><p>Run your first audit to see it here.</p></div>`;
+    return;
+  }
+  el.innerHTML = recent.map(a => miniCard(a)).join('');
+}
+
+function miniCard(a) {
+  const score  = a.result?.overall_score ?? '—';
+  const color  = score >= 70 ? 'var(--sage)' : score >= 45 ? 'var(--gold)' : 'var(--terra)';
+  const date   = new Date(a.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return `
+    <div class="mini-preview" onclick="openAuditDetail('${a.id}')">
+      <div class="mini-preview__header">
+        <div>
+          <div class="mini-preview__name">${esc(a.name)}</div>
+          <div class="mini-preview__brand">${esc(a.brand)} · ${date}</div>
+        </div>
+        <div class="mini-preview__score" style="color:${color};">${score}</div>
+      </div>
+      ${a.result?.headline ? `<p style="font-size:13px;color:var(--text-muted);font-style:italic;">"${esc(a.result.headline)}"</p>` : ''}
+    </div>
+  `;
+}
+
+// ─── Audits table ─────────────────────────────────────────────────────────────
+function renderAuditsTable() {
+  const wrap = document.getElementById('audits-table-wrap');
+  if (allAudits.length === 0) {
+    wrap.innerHTML = `<div class="empty-state"><div class="empty-state__icon">○</div><div class="empty-state__title">No audits yet</div><p>Run your first audit using the New Audit tab.</p></div>`;
+    return;
+  }
+
+  wrap.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Brand</th>
+            <th>Date</th>
+            <th>Score</th>
+            <th>Source</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="audits-tbody">
+        ${allAudits.map(a => auditRow(a)).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function auditRow(a) {
+  const score  = a.result?.overall_score ?? '—';
+  const color  = score >= 70 ? 'var(--sage)' : score >= 45 ? 'var(--gold)' : 'var(--terra)';
+  const date   = new Date(a.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const source = a.source || 'public';
+  return `
+    <tr class="audit-row" onclick="toggleRow('${a.id}')">
+      <td style="color:var(--text);font-weight:500;">${esc(a.name)}</td>
+      <td>${esc(a.brand)}</td>
+      <td>${date}</td>
+      <td><span style="font-family:var(--font-display);font-size:18px;color:${color};">${score}</span></td>
+      <td><span class="source-badge source-badge--${source}">${source}</span></td>
+      <td onclick="event.stopPropagation()">
+        <div style="display:flex;gap:6px;">
+          <button class="icon-btn" title="View full report" onclick="openAuditDetail('${a.id}')">⤢</button>
+          <a class="icon-btn" href="results.html?id=${a.id}" target="_blank" title="Open report page">↗</a>
+          <button class="icon-btn icon-btn--danger" title="Delete" onclick="deleteAudit('${a.id}')">✕</button>
+        </div>
+      </td>
+    </tr>
+    <tr class="audit-expand" id="expand-${a.id}">
+      <td colspan="6">
+        <div style="max-width:680px;">
+          ${a.result?.narrative ? `<p style="font-size:14px;color:var(--text-soft);font-style:italic;margin-bottom:16px;">"${esc(a.result.narrative)}"</p>` : ''}
+          <div class="note-wrap">
+            <label class="form-label">Niya's notes</label>
+            <textarea class="form-textarea" id="note-${a.id}" style="min-height:80px;"
+                      placeholder="Add your private notes here…">${esc(a.niya_notes || '')}</textarea>
+            <button class="btn btn--ghost btn--sm" style="margin-top:8px;" onclick="saveNote('${a.id}')">Save note</button>
+          </div>
+        </div>
+      </td>
+    </tr>
+  `;
+}
+
+function toggleRow(id) {
+  const row = document.getElementById('expand-' + id);
+  if (row) row.classList.toggle('open');
+}
+
+async function saveNote(id) {
+  const note = document.getElementById('note-' + id).value;
+  try {
+    await fetch(`/api/audit/${id}/note`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-password': ADMIN_PW },
+      body: JSON.stringify({ note })
+    });
+    // Update local cache
+    const idx = allAudits.findIndex(a => a.id === id);
+    if (idx !== -1) allAudits[idx].niya_notes = note;
+  } catch (err) { alert('Failed to save note: ' + err.message); }
+}
+
+async function deleteAudit(id) {
+  if (!confirm('Delete this audit? This cannot be undone.')) return;
+  try {
+    const res = await fetch(`/api/audit/${id}`, {
+      method: 'DELETE',
+      headers: { 'x-admin-password': ADMIN_PW }
+    });
+    if (!res.ok) throw new Error('Delete failed');
+    allAudits = allAudits.filter(a => a.id !== id);
+    renderOverview();
+    renderAuditsTable();
+  } catch (err) { alert('Delete failed: ' + err.message); }
+}
+
+// ─── Audit detail modal ───────────────────────────────────────────────────────
+function openAuditDetail(id) {
+  const a = allAudits.find(x => x.id === id);
+  if (!a) return;
+  const score  = a.result?.overall_score ?? '—';
+  const color  = score >= 70 ? 'var(--sage)' : score >= 45 ? 'var(--gold)' : 'var(--terra)';
+  const date   = new Date(a.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+  const dimsHtml = (a.result?.dimensions || []).map(d => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-weight:500;font-size:14px;">${esc(d.name)}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${esc(d.insight)}</div>
+      </div>
+      <span style="font-family:var(--font-display);font-size:22px;color:${d.rating==='strong'?'var(--sage)':d.rating==='medium'?'var(--gold)':'var(--terra)'};">${d.score}</span>
+    </div>
+  `).join('');
+
+  const gapsHtml = (a.result?.gaps || []).map(g => `
+    <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">
+      <span>${g.type === 'warn' ? '⚠' : '✓'}</span>
+      <div>
+        <div style="font-weight:500;font-size:13px;">${esc(g.title)}</div>
+        <div style="font-size:12px;color:var(--text-muted);">${esc(g.description)}</div>
+      </div>
+    </div>
+  `).join('');
+
+  document.getElementById('modal-content').innerHTML = `
+    <div class="flex justify-between items-center mb-24">
+      <div>
+        <div style="font-size:18px;font-weight:500;color:var(--text);">${esc(a.name)} — ${esc(a.brand)}</div>
+        <div style="font-size:13px;color:var(--text-muted);">${date} · ${a.business_type || ''}</div>
+      </div>
+      <div style="font-family:var(--font-display);font-size:40px;color:${color};">${score}</div>
+    </div>
+
+    ${a.result?.headline ? `<p style="font-family:var(--font-display);font-style:italic;font-size:18px;color:var(--text);margin-bottom:16px;">"${esc(a.result.headline)}"</p>` : ''}
+    ${a.result?.narrative ? `<div style="background:var(--card);border-left:3px solid var(--gold);border-radius:0 12px 12px 0;padding:16px 20px;margin-bottom:24px;"><p style="font-size:14px;color:var(--text-soft);line-height:1.7;">${esc(a.result.narrative)}</p></div>` : ''}
+
+    <h3 style="font-family:var(--font-display);font-size:17px;margin-bottom:12px;">Dimensions</h3>
+    <div style="margin-bottom:24px;">${dimsHtml}</div>
+
+    <h3 style="font-family:var(--font-display);font-size:17px;margin-bottom:12px;">Focus areas</h3>
+    <div style="margin-bottom:24px;">${gapsHtml}</div>
+
+    ${a.niya_notes ? `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-top:8px;"><div style="font-size:11px;color:var(--gold);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">Niya's notes</div><p style="font-size:13px;color:var(--text-soft);white-space:pre-wrap;">${esc(a.niya_notes)}</p></div>` : ''}
+
+    <div style="margin-top:24px;display:flex;gap:12px;">
+      <a href="results.html?id=${a.id}" target="_blank" class="btn btn--primary btn--sm">Open report ↗</a>
+      <button class="btn btn--ghost btn--sm" onclick="closeModal()">Close</button>
+    </div>
+  `;
+
+  document.getElementById('detail-modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('detail-modal').classList.remove('open');
+}
+document.getElementById('detail-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('detail-modal')) closeModal();
+});
+
+// ─── New Audit (admin form) ───────────────────────────────────────────────────
+function admSetProgress(step) {
+  const labels = ['Step 1 of 3', 'Step 2 of 3', 'Step 3 of 3', 'Analyzing…'];
+  const pcts   = ['33%', '66%', '90%', '100%'];
+  document.getElementById('adm-step-label').textContent = labels[step - 1] || 'Analyzing…';
+  document.getElementById('adm-step-pct').textContent   = pcts[step - 1] || '100%';
+  document.getElementById('adm-progress-fill').style.width = pcts[step - 1] || '100%';
+}
+
+function admShowStep(n) {
+  document.querySelectorAll('.admin-form-panel .form-step').forEach(s => s.classList.remove('active'));
+  document.getElementById('adm-step-' + n).classList.add('active');
+  admSetProgress(n);
+}
+
+function admGoStep(n) {
+  if (n === 2) {
+    if (!document.getElementById('adm-brand').value.trim() || !document.getElementById('adm-type').value) {
+      alert('Please fill in the brand name and business type.'); return;
+    }
+  }
+  if (n === 3) {
+    if (admTps.length < 3) { alert('Add at least 3 touchpoints.'); return; }
+    admRenderFeelings();
+    admShowStep(3); return;
+  }
+  admShowStep(n);
+}
+
+// Touchpoints
+function admRenderTpList() {
+  document.getElementById('adm-touchpoints-list').innerHTML = admTps.map((tp, i) => `
+    <div class="touchpoint-item">
+      <span style="width:22px;height:22px;border-radius:50%;background:var(--gold);color:#0D0D0D;
+                   font-size:11px;font-weight:700;display:flex;align-items:center;
+                   justify-content:center;flex-shrink:0;">${i+1}</span>
+      <span class="touchpoint-item__name">${tp.name}</span>
+      <button class="touchpoint-item__remove" onclick="admRemoveTp(${i})">×</button>
+    </div>
+  `).join('');
+  const addBtn = document.getElementById('adm-add-tp-btn');
+  const addRow = document.getElementById('adm-tp-add-row');
+  if (admTps.length >= 6) { addBtn.disabled = true; addRow.style.display = 'none'; }
+  else { addBtn.disabled = false; addRow.style.display = 'flex'; }
+}
+
+function admAddTp() {
+  const input = document.getElementById('adm-tp-input');
+  const name  = input.value.trim();
+  if (!name || admTps.length >= 6) return;
+  admTps.push({ name, intended_feeling: '', actual_feeling: '' });
+  input.value = '';
+  admRenderTpList();
+  input.focus();
+}
+function admRemoveTp(i) { admTps.splice(i, 1); admRenderTpList(); }
+
+document.getElementById('adm-tp-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); admAddTp(); }
+});
+admRenderTpList();
+
+// Feelings
+function admRenderFeelings() {
+  admCurrent = 0;
+  document.getElementById('adm-feelings-container').innerHTML = admTps.map((tp, i) => `
+    <div class="feeling-pair ${i === 0 ? 'active' : ''}" id="adm-fp-${i}">
+      <div class="feeling-header">
+        <div class="feeling-dot"></div>
+        <div class="feeling-pair-title">${tp.name}</div>
+      </div>
+      <div class="form-group mt-16">
+        <label class="form-label">Intended feeling?</label>
+        <input class="form-input" id="adm-fi-${i}" type="text" placeholder="e.g. Curious, inspired…"
+               value="${tp.intended_feeling}" oninput="admTps[${i}].intended_feeling=this.value">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Actual feeling?</label>
+        <input class="form-input" id="adm-fa-${i}" type="text" placeholder="e.g. Confused, overwhelmed…"
+               value="${tp.actual_feeling}" oninput="admTps[${i}].actual_feeling=this.value">
+      </div>
+    </div>
+  `).join('');
+  admUpdateFeelingNav();
+}
+
+function admUpdateFeelingNav() {
+  document.getElementById('adm-tp-progress').textContent = `Touchpoint ${admCurrent + 1} of ${admTps.length}`;
+  document.getElementById('adm-feelings-next').textContent = admCurrent === admTps.length - 1 ? 'Analyze →' : 'Next →';
+}
+
+function admFeelingBack() {
+  if (admCurrent === 0) { admShowStep(2); return; }
+  document.getElementById('adm-fp-' + admCurrent).classList.remove('active');
+  admCurrent--;
+  document.getElementById('adm-fp-' + admCurrent).classList.add('active');
+  admUpdateFeelingNav();
+}
+
+function admFeelingNext() {
+  const tp = admTps[admCurrent];
+  if (!tp.intended_feeling.trim() || !tp.actual_feeling.trim()) {
+    alert('Please describe both feelings.'); return;
+  }
+  if (admCurrent < admTps.length - 1) {
+    document.getElementById('adm-fp-' + admCurrent).classList.remove('active');
+    admCurrent++;
+    document.getElementById('adm-fp-' + admCurrent).classList.add('active');
+    admUpdateFeelingNav();
+  } else {
+    admSubmit();
+  }
+}
+
+async function admSubmit() {
+  admShowStep(4);
+  try {
+    const res = await fetch('/api/audit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name:          document.getElementById('adm-internal-name').value.trim() || 'Niya (dashboard)',
+        brand:         document.getElementById('adm-brand').value.trim(),
+        business_type: document.getElementById('adm-type').value,
+        touchpoints:   admTps,
+        niya_notes:    document.getElementById('adm-notes').value.trim(),
+        source: 'dashboard'
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Server error');
+    allAudits.unshift(data);
+    renderOverview();
+    renderAuditsTable();
+
+    // Reset form
+    admTps = [];
+    admRenderTpList();
+    admShowStep(1);
+    ['adm-internal-name','adm-brand','adm-notes'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('adm-type').value = '';
+
+    showTab('audits');
+    openAuditDetail(data.id);
+  } catch (err) {
+    alert('Audit failed: ' + err.message);
+    admShowStep(3);
+  }
+}
+
+// ─── Export JSON ──────────────────────────────────────────────────────────────
+async function exportJson() {
+  try {
+    const res  = await fetch('/api/export', { headers: { 'x-admin-password': ADMIN_PW } });
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'audits-export.json';
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) { alert('Export failed: ' + err.message); }
+}
+
+// ─── Utils ────────────────────────────────────────────────────────────────────
+function esc(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+</script>
+
+</body>
+</html>
