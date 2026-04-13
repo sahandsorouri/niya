@@ -240,8 +240,11 @@ app.post('/api/pdf', async (req, res) => {
       format: 'A4',
       printBackground: true,
       margin: { top: 0, right: 0, bottom: 0, left: 0 },
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-      executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium-browser'
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+      executablePath: process.env.CHROMIUM_PATH ||
+        ['/usr/bin/google-chrome-stable', '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser']
+          .find(p => { try { require('fs').accessSync(p); return true; } catch { return false; } }) ||
+        undefined
     };
     const file = { content: htmlContent };
 
