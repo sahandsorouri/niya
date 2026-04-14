@@ -9,12 +9,14 @@ const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'NiyaAV2026!';
-const AUDITS_PATH = path.join(__dirname, 'niya', 'audits.json');
+const AUDITS_PATH  = path.join(__dirname, 'niya', 'audits.json');
+const SURVEYS_PATH = path.join(__dirname, 'niya', 'surveys.json');
 
-// Ensure niya directory and audits.json exist
+// Ensure niya directory and data files exist
 const niyaDir = path.join(__dirname, 'niya');
 if (!fs.existsSync(niyaDir)) fs.mkdirSync(niyaDir, { recursive: true });
-if (!fs.existsSync(AUDITS_PATH)) fs.writeFileSync(AUDITS_PATH, '[]', 'utf8');
+if (!fs.existsSync(AUDITS_PATH))  fs.writeFileSync(AUDITS_PATH,  '[]', 'utf8');
+if (!fs.existsSync(SURVEYS_PATH)) fs.writeFileSync(SURVEYS_PATH, '[]', 'utf8');
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -44,12 +46,23 @@ function authMiddleware(req, res, next) {
   next();
 }
 
+function readSurveys() {
+  try { return JSON.parse(fs.readFileSync(SURVEYS_PATH, 'utf8')); } catch { return []; }
+}
+function writeSurveys(s) {
+  fs.writeFileSync(SURVEYS_PATH, JSON.stringify(s, null, 2), 'utf8');
+}
+function generateSlug(len = 7) {
+  const chars = 'abcdefghijkmnpqrstuvwxyz23456789';
+  return Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
 // ─── Routes ─────────────────────────────────────────────────────────────────
 
 // POST /api/audit — run a new audit
 app.post('/api/audit', async (req, res) => {
   try {
-    const { name, brand, business_type, touchpoints, source = 'public', niya_notes = '' } = req.body;
+    const { name, brand, business_type, touchpoints, source = 'public', niya_notes = '', survey_slug = null, extra_answers = [] } = req.body;
 
     if (!name || !brand || !touchpoints || !Array.isArray(touchpoints) || touchpoints.length < 1) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -160,14 +173,23 @@ Be ruthlessly specific to their actual answers. Never give generic advice. Make 
       brand,
       business_type: business_type || '',
       touchpoints,
+      extra_answers,
       result,
       niya_notes,
-      source
+      source,
+      survey_slug
     };
 
     const audits = readAudits();
     audits.unshift(audit);
     writeAudits(audits);
+
+    // Link audit to survey if submitted via survey link
+    if (survey_slug) {
+      const surveys = readSurveys();
+      const si = surveys.findIndex(s => s.slug === survey_slug);
+      if (si !== -1) { surveys[si].audit_ids.push(audit.id); writeSurveys(surveys); }
+    }
 
     res.json(audit);
   } catch (err) {
@@ -369,6 +391,176 @@ function buildPdfHtml(audit) {
 
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
+// ─── Survey routes ───────────────────────────────────────────────────────────
+
+// GET /s/:slug — serve client survey page
+app.get('/s/:slug', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'survey.html'));
+});
+
+// GET /api/survey/:slug — public, returns survey config
+app.get('/api/survey/:slug', (req, res) => {
+  const survey = readSurveys().find(s => s.slug === req.params.slug);
+  if (!survey) return res.status(404).json({ error: 'Survey not found' });
+  res.json(survey);
+});
+
+// GET /api/surveys — admin, list all surveys
+app.get('/api/surveys', authMiddleware, (req, res) => {
+  res.json(readSurveys());
+});
+
+// POST /api/surveys — admin, create survey
+app.post('/api/surveys', authMiddleware, (req, res) => {
+  const surveys = readSurveys();
+  let slug = generateSlug();
+  while (surveys.find(s => s.slug === slug)) slug = generateSlug();
+  const survey = {
+    id: uuidv4(),
+    slug,
+    client_label: req.body.client_label || 'Client',
+    entity_word: req.body.entity_word || 'brand',
+    intro_message: req.body.intro_message || '',
+    context: req.body.context || '',
+    questions: req.body.questions || [],
+    warmup_questions: req.body.warmup_questions || [],
+    ai_summary: null,
+    created_at: new Date().toISOString(),
+    audit_ids: []
+  };
+  surveys.unshift(survey);
+  writeSurveys(surveys);
+  res.json(survey);
+});
+
+// PUT /api/survey/:slug — admin, update survey
+app.put('/api/survey/:slug', authMiddleware, (req, res) => {
+  const surveys = readSurveys();
+  const idx = surveys.findIndex(s => s.slug === req.params.slug);
+  if (idx === -1) return res.status(404).json({ error: 'Not found' });
+  surveys[idx] = { ...surveys[idx], ...req.body, slug: req.params.slug };
+  writeSurveys(surveys);
+  res.json(surveys[idx]);
+});
+
+// DELETE /api/survey/:slug — admin
+app.delete('/api/survey/:slug', authMiddleware, (req, res) => {
+  const surveys = readSurveys();
+  const idx = surveys.findIndex(s => s.slug === req.params.slug);
+  if (idx === -1) return res.status(404).json({ error: 'Not found' });
+  surveys.splice(idx, 1);
+  writeSurveys(surveys);
+  res.json({ success: true });
+});
+
+// POST /api/survey/:slug/summarize — AI summary of all responses
+app.post('/api/survey/:slug/summarize', authMiddleware, async (req, res) => {
+  const surveys = readSurveys();
+  const idx = surveys.findIndex(s => s.slug === req.params.slug);
+  if (idx === -1) return res.status(404).json({ error: 'Not found' });
+  const survey = surveys[idx];
+  const audits = readAudits().filter(a => survey.audit_ids.includes(a.id));
+  if (audits.length === 0) return res.status(400).json({ error: 'No audits to summarize' });
+
+  const auditSummaries = audits.map(a =>
+    `Respondent: ${a.name}\nScore: ${a.result?.overall_score}\nHeadline: ${a.result?.headline}\nNarrative: ${a.result?.narrative}`
+  ).join('\n\n---\n\n');
+
+  const message = await anthropic.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 512,
+    messages: [{
+      role: 'user',
+      content: `You are Niya's analytical assistant. Summarize the patterns across these ${audits.length} emotional gap audit responses for client "${survey.client_label}". Be specific, warm, and actionable. 2-3 sentences max.\n\n${auditSummaries}`
+    }]
+  });
+  const summary = message.content[0].text;
+  surveys[idx].ai_summary = summary;
+  writeSurveys(surveys);
+  res.json({ summary });
+});
+
+// ─── Chat / AI streaming ──────────────────────────────────────────────────────
+
+// POST /api/chat — unified SSE streaming chat for all modes
+app.post('/api/chat', async (req, res) => {
+  const { mode, messages, context } = req.body;
+
+  // Auth check for privileged modes
+  if (mode === 'builder' || mode === 'dashboard') {
+    const pw = req.headers['x-admin-password'] || req.body?.adminPassword;
+    if (pw !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const systemPrompts = {
+    builder: `You are an expert survey designer helping Niya, an emotional intelligence consultant at Activate Vision, create a custom emotional gap audit survey for a client.
+
+Your job: Ask smart clarifying questions about the client, then generate a complete survey JSON.
+
+When you have enough context (usually after 2-3 exchanges), output the survey as valid JSON wrapped in <survey>...</survey> tags. The JSON structure:
+{
+  "client_label": "string",
+  "entity_word": "brand|product|organization|service|company or custom",
+  "intro_message": "2-3 sentences welcoming the client, warm and specific",
+  "context": "internal context summary for Niya",
+  "warmup_questions": ["question 1", "question 2"],
+  "questions": [
+    { "id": "q1", "type": "touchpoint_feelings", "label": "Map your [entity_word] journey" },
+    { "id": "q2", "type": "open", "label": "..." },
+    { "id": "q3", "type": "scale", "label": "...", "min": 1, "max": 10 },
+    { "id": "q4", "type": "multiple_choice", "label": "...", "options": ["A","B","C","D"] },
+    { "id": "q5", "type": "yes_no", "label": "..." },
+    { "id": "q6", "type": "context", "label": "..." },
+    { "id": "q7", "type": "single_feeling", "label": "..." },
+    { "id": "q8", "type": "ranking", "label": "...", "options": ["A","B","C"] }
+  ]
+}
+
+Question types available: touchpoint_feelings, open, context, single_feeling, scale, multiple_choice, yes_no, ranking.
+Always include at least one touchpoint_feelings question. Mix 4-7 questions total. Make warmup_questions (2-3) relevant to the specific client context.
+
+Be conversational, warm, and smart. Ask one or two focused questions at a time. When generating the survey, precede it with a brief explanation of your choices.`,
+
+    warmup: `You are a warm, perceptive guide preparing someone for their emotional gap audit. The survey context: ${JSON.stringify(context?.survey || {})}.
+
+Ask 2-3 short, thoughtful questions that help the respondent reflect before they map their journey. Questions should be specific to the survey's focus (entity: ${context?.survey?.entity_word || 'brand'}, client: ${context?.survey?.client_label || 'this organization'}).
+
+Be conversational — like a thoughtful colleague, not a form. Keep each message short (1-2 sentences). After 2-3 exchanges, say something warm like "You're ready. Let's map this together." and end with <ready/> tag on its own line.`,
+
+    results: `You are a warm, precise interpreter of emotional intelligence reports. The user just received their emotional gap audit results: ${JSON.stringify(context?.result || {})}.
+
+Help them understand their specific report. Reference their actual scores, touchpoints, and gaps. Be specific — never generic. Sound like a trusted advisor. Keep responses focused (3-5 sentences). Always end with a practical next step.`,
+
+    dashboard: `You are Niya's analytical assistant at Activate Vision. You have access to her audit data: ${JSON.stringify(context?.audits?.slice(0, 20) || [])}.
+
+Help Niya analyze patterns, draft client communications, identify insights, and make strategic decisions. Be direct, intelligent, and specific. You can reference specific clients and scores from her data.`
+  };
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  try {
+    const stream = anthropic.messages.stream({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1024,
+      system: systemPrompts[mode] || systemPrompts.results,
+      messages
+    });
+
+    stream.on('text', (text) => {
+      res.write(`data: ${JSON.stringify({ text })}\n\n`);
+    });
+
+    await stream.finalMessage();
+    res.write('data: [DONE]\n\n');
+  } catch (err) {
+    res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+  }
+  res.end();
+});
 
 // Catch-all: serve index.html
 app.get('*', (req, res) => {

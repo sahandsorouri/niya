@@ -195,6 +195,10 @@
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M8 5v6M5 8h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
         New Audit
       </a>
+      <a href="#" onclick="showTab('surveys')" id="tab-link-surveys">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h8M2 12h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="13" cy="11" r="2.5" stroke="currentColor" stroke-width="1.3"/><path d="M15 13l1.5 1.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Surveys
+      </a>
       <a href="#" onclick="showTab('settings')" id="tab-link-settings">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.5v1.2M8 13.3v1.2M1.5 8h1.2M13.3 8h1.2M3.4 3.4l.85.85M11.75 11.75l.85.85M3.4 12.6l.85-.85M11.75 4.25l.85-.85" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
         Settings
@@ -388,9 +392,81 @@
       </div>
     </div>
 
+    <!-- ── Surveys tab ── -->
+    <div class="tab-content" id="tab-surveys">
+      <div class="flex justify-between items-center mb-32" style="flex-wrap:wrap;gap:16px;">
+        <div>
+          <div class="eyebrow mb-8">Dashboard</div>
+          <h1 style="font-family:var(--font-display);font-size:32px;color:var(--text);">Client Surveys</h1>
+          <p style="color:var(--text-muted);font-size:14px;margin-top:6px;">Create personalized audit links for each client using the AI survey builder.</p>
+        </div>
+        <button class="btn btn--primary" onclick="showSurveyBuilder()">+ New survey</button>
+      </div>
+
+      <!-- Survey list -->
+      <div id="surveys-list-wrap">
+        <div style="color:var(--text-muted);font-size:14px;">Loading…</div>
+      </div>
+
+      <!-- Survey builder panel -->
+      <div id="survey-builder-panel" style="display:none;margin-top:32px;">
+        <div class="flex justify-between items-center mb-20">
+          <h2 style="font-family:var(--font-display);font-size:22px;">Build a survey</h2>
+          <button class="icon-btn" onclick="hideSurveyBuilder()">×</button>
+        </div>
+
+        <div class="survey-builder">
+          <!-- Left: chat -->
+          <div class="builder-chat">
+            <div class="chat-header">
+              <div class="chat-header-dot"></div>
+              <div class="chat-header-title">Survey Builder AI</div>
+              <div class="chat-header-sub">Describe your client</div>
+            </div>
+            <div class="chat-messages" id="builder-messages">
+              <div class="chat-bubble chat-bubble--ai">
+                Tell me about this client — their industry, what they offer, and what you're trying to understand about their customer experience. I'll design the survey.
+              </div>
+            </div>
+            <div class="chat-input-row">
+              <textarea class="chat-input" id="builder-input" placeholder="e.g. B2B SaaS startup, struggling with onboarding drop-off…"
+                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendBuilderChat();}"></textarea>
+              <button class="chat-send" id="builder-send" onclick="sendBuilderChat()">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7h10M7 2l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Right: preview -->
+          <div class="builder-preview">
+            <div class="preview-header">
+              <div class="preview-header-title">Survey preview</div>
+              <button class="btn btn--primary btn--sm" id="save-survey-btn" style="display:none;" onclick="saveSurvey()">Save &amp; get link →</button>
+            </div>
+            <div id="builder-preview-content" style="padding:20px;">
+              <div style="text-align:center;padding:60px 20px;color:var(--text-muted);font-size:14px;">
+                Chat with the AI to generate your survey
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </main>
 </div>
 
+
+<!-- ── Survey link modal ── -->
+<div class="modal-overlay" id="survey-link-modal">
+  <div class="modal" style="max-width:480px;">
+    <div class="flex justify-between items-center mb-24">
+      <h2 style="font-family:var(--font-display);font-size:22px;">Survey created</h2>
+      <button class="icon-btn" onclick="closeSurveyLinkModal()">×</button>
+    </div>
+    <div id="survey-link-content"></div>
+  </div>
+</div>
 
 <!-- ── Audit detail modal ── -->
 <div class="modal-overlay" id="detail-modal">
@@ -840,6 +916,344 @@ function esc(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+
+// ─── Surveys ──────────────────────────────────────────────────────────────────
+let allSurveys    = [];
+let builderHistory = [{ role: 'assistant', content: "Tell me about this client — their industry, what they offer, and what you're trying to understand about their customer experience. I'll design the survey." }];
+let pendingSurvey  = null;
+
+async function loadSurveys() {
+  try {
+    const res  = await fetch('/api/surveys', { headers: { 'x-admin-password': ADMIN_PW } });
+    allSurveys = await res.json();
+    renderSurveyList();
+  } catch {}
+}
+
+function renderSurveyList() {
+  const wrap = document.getElementById('surveys-list-wrap');
+  if (!wrap) return;
+  if (allSurveys.length === 0) {
+    wrap.innerHTML = `<div class="empty-state"><div class="empty-state__icon">○</div><div class="empty-state__title">No surveys yet</div><p>Click "New survey" to build your first client survey with AI.</p></div>`;
+    return;
+  }
+  wrap.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Client</th><th>Entity word</th><th>Slug</th><th>Responses</th><th>Created</th><th>Actions</th></tr></thead>
+        <tbody>
+          ${allSurveys.map(s => `
+            <tr>
+              <td style="color:var(--text);font-weight:500;">${esc(s.client_label)}</td>
+              <td><span class="badge badge--medium">${esc(s.entity_word)}</span></td>
+              <td><code style="font-size:12px;color:var(--gold);">${s.slug}</code></td>
+              <td style="color:var(--text-muted);">${(s.audit_ids||[]).length}</td>
+              <td style="color:var(--text-muted);">${new Date(s.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</td>
+              <td>
+                <div style="display:flex;gap:6px;">
+                  <button class="icon-btn" title="Copy link" onclick="copySurveyLink('${s.slug}')">⎘</button>
+                  <button class="icon-btn icon-btn--danger" title="Delete" onclick="deleteSurvey('${s.slug}')">✕</button>
+                </div>
+              </td>
+            </tr>
+            ${s.ai_summary ? `<tr><td colspan="6" style="padding:8px 16px 16px;"><div style="background:var(--surface);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;padding:12px 16px;font-size:13px;color:var(--text-soft);font-style:italic;">${esc(s.ai_summary)}</div></td></tr>` : ''}
+          `).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function copySurveyLink(slug) {
+  const url = `${location.origin}/s/${slug}`;
+  navigator.clipboard.writeText(url).then(() => alert(`Copied: ${url}`));
+}
+
+async function deleteSurvey(slug) {
+  if (!confirm('Delete this survey? This cannot be undone.')) return;
+  await fetch(`/api/survey/${slug}`, { method: 'DELETE', headers: { 'x-admin-password': ADMIN_PW } });
+  allSurveys = allSurveys.filter(s => s.slug !== slug);
+  renderSurveyList();
+}
+
+function showSurveyBuilder() {
+  document.getElementById('survey-builder-panel').style.display = 'block';
+  document.getElementById('survey-builder-panel').scrollIntoView({ behavior: 'smooth' });
+}
+function hideSurveyBuilder() {
+  document.getElementById('survey-builder-panel').style.display = 'none';
+  pendingSurvey = null;
+}
+
+// ─── Builder chat (streaming) ─────────────────────────────────────────────────
+async function sendBuilderChat() {
+  const input = document.getElementById('builder-input');
+  const text  = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  appendBuilderMsg(text, 'user');
+  builderHistory.push({ role: 'user', content: text });
+
+  const sendBtn = document.getElementById('builder-send');
+  sendBtn.disabled = true;
+
+  // Show typing indicator
+  const typingEl = appendBuilderTyping();
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-password': ADMIN_PW },
+      body: JSON.stringify({ mode: 'builder', messages: builderHistory, adminPassword: ADMIN_PW })
+    });
+
+    typingEl.remove();
+    const bubble = appendBuilderMsg('', 'ai');
+    bubble.classList.add('streaming-cursor');
+
+    let fullText = '';
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const lines = decoder.decode(value).split('\n');
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const d = line.slice(6);
+        if (d === '[DONE]') break;
+        try {
+          const { text: t } = JSON.parse(d);
+          if (t) { fullText += t; bubble.textContent = fullText; }
+        } catch {}
+      }
+    }
+
+    bubble.classList.remove('streaming-cursor');
+    builderHistory.push({ role: 'assistant', content: fullText });
+
+    // Check if survey JSON is embedded
+    const match = fullText.match(/<survey>([\s\S]*?)<\/survey>/);
+    if (match) {
+      try {
+        pendingSurvey = JSON.parse(match[1].trim());
+        renderBuilderPreview(pendingSurvey);
+        document.getElementById('save-survey-btn').style.display = 'inline-flex';
+      } catch {}
+    }
+  } catch (err) {
+    typingEl.remove();
+    appendBuilderMsg('Sorry, something went wrong. Please try again.', 'ai');
+  }
+
+  sendBtn.disabled = false;
+  input.focus();
+}
+
+function appendBuilderMsg(text, role) {
+  const wrap = document.getElementById('builder-messages');
+  const el   = document.createElement('div');
+  el.className = `chat-bubble chat-bubble--${role}`;
+  el.textContent = text;
+  wrap.appendChild(el);
+  wrap.scrollTop = wrap.scrollHeight;
+  return el;
+}
+
+function appendBuilderTyping() {
+  const wrap = document.getElementById('builder-messages');
+  const el   = document.createElement('div');
+  el.className = 'chat-typing';
+  el.innerHTML = '<span></span><span></span><span></span>';
+  wrap.appendChild(el);
+  wrap.scrollTop = wrap.scrollHeight;
+  return el;
+}
+
+function renderBuilderPreview(survey) {
+  const content = document.getElementById('builder-preview-content');
+  const typeLabels = { touchpoint_feelings:'Journey map', open:'Open text', context:'Context', single_feeling:'Single feeling', scale:'Scale', multiple_choice:'Multiple choice', yes_no:'Yes / No', ranking:'Ranking' };
+
+  content.innerHTML = `
+    <div style="padding:8px 0 16px;">
+      <div class="eyebrow mb-8">Client</div>
+      <div style="font-size:16px;font-weight:500;color:var(--text);margin-bottom:4px;">${esc(survey.client_label||'')}</div>
+      <div style="font-size:12px;color:var(--text-muted);">Entity word: <span style="color:var(--gold);">${esc(survey.entity_word||'brand')}</span></div>
+      ${survey.intro_message ? `<div style="font-size:13px;color:var(--text-muted);margin-top:8px;font-style:italic;">"${esc(survey.intro_message)}"</div>` : ''}
+    </div>
+    ${(survey.warmup_questions||[]).length ? `
+      <div style="border-top:1px solid var(--border);padding:12px 0;">
+        <div class="eyebrow mb-8">Warm-up</div>
+        ${survey.warmup_questions.map(q => `<div style="font-size:13px;color:var(--text-muted);padding:4px 0;">— ${esc(q)}</div>`).join('')}
+      </div>` : ''}
+    <div style="border-top:1px solid var(--border);">
+      ${(survey.questions||[]).map(q => `
+        <div class="question-item">
+          <span class="question-type-badge">${typeLabels[q.type]||q.type}</span>
+          <span class="question-label">${esc(q.label||'')}</span>
+        </div>`).join('')}
+    </div>`;
+}
+
+async function saveSurvey() {
+  if (!pendingSurvey) return;
+  const btn = document.getElementById('save-survey-btn');
+  btn.textContent = 'Saving…'; btn.disabled = true;
+
+  try {
+    const res    = await fetch('/api/surveys', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-password': ADMIN_PW },
+      body: JSON.stringify(pendingSurvey)
+    });
+    const survey = await res.json();
+    allSurveys.unshift(survey);
+    renderSurveyList();
+    hideSurveyBuilder();
+    showSurveyLinkModal(survey);
+  } catch (err) { alert('Failed to save: ' + err.message); }
+  finally { btn.textContent = 'Save & get link →'; btn.disabled = false; }
+}
+
+function showSurveyLinkModal(survey) {
+  const url = `${location.origin}/s/${survey.slug}`;
+  document.getElementById('survey-link-content').innerHTML = `
+    <div style="margin-bottom:24px;">
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">Shareable link for ${esc(survey.client_label)}</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input class="form-input" value="${url}" readonly id="survey-link-input" style="font-size:13px;">
+        <button class="btn btn--primary btn--sm" onclick="navigator.clipboard.writeText('${url}').then(()=>this.textContent='Copied!')">Copy</button>
+      </div>
+    </div>
+    <p style="font-size:13px;color:var(--text-muted);line-height:1.6;">Share this link directly with your client. Their responses will appear in <strong style="color:var(--text);">All Audits</strong> tagged with this survey.</p>
+    <button class="btn btn--ghost" style="width:100%;margin-top:16px;" onclick="closeSurveyLinkModal()">Done</button>`;
+  document.getElementById('survey-link-modal').classList.add('open');
+}
+function closeSurveyLinkModal() { document.getElementById('survey-link-modal').classList.remove('open'); }
+document.getElementById('survey-link-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('survey-link-modal')) closeSurveyLinkModal();
+});
+
+// ─── Dashboard chat ───────────────────────────────────────────────────────────
+let dashChatHistory = [];
+let dashChatOpen    = false;
+
+function initDashboardChat() {
+  const panel = document.createElement('div');
+  panel.className = 'chat-panel';
+  panel.innerHTML = `
+    <div class="chat-window" id="dash-chat-window">
+      <div class="chat-header">
+        <div class="chat-header-dot"></div>
+        <div class="chat-header-title">Niya's Assistant</div>
+        <div class="chat-header-sub" style="font-size:10px;">BETA</div>
+      </div>
+      <div class="chat-messages" id="dash-chat-messages">
+        <div class="chat-bubble chat-bubble--ai">Hi Niya — ask me anything about your audit data. I can spot patterns, draft emails, or help you prepare for a client session.</div>
+      </div>
+      <div class="chat-chips" id="dash-chat-chips">
+        <button class="chat-chip" onclick="sendDashChat('What patterns do you see across all my audits?')">Spot patterns</button>
+        <button class="chat-chip" onclick="sendDashChat('Which client has the biggest emotional gap?')">Biggest gap</button>
+        <button class="chat-chip" onclick="sendDashChat('Summarize this week\\'s audits')">This week</button>
+      </div>
+      <div class="chat-input-row">
+        <textarea class="chat-input" id="dash-chat-input" placeholder="Ask about your data…" rows="1"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendDashChat();}"></textarea>
+        <button class="chat-send" id="dash-chat-send" onclick="sendDashChat()">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7h10M7 2l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </div>
+    <button class="chat-toggle" onclick="toggleDashChat()" id="dash-chat-toggle" title="Niya's Assistant (BETA)">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 5a2 2 0 012-2h10a2 2 0 012 2v7a2 2 0 01-2 2H7l-4 3V5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+    </button>`;
+  document.getElementById('dashboard-screen').appendChild(panel);
+}
+
+function toggleDashChat() {
+  dashChatOpen = !dashChatOpen;
+  const w = document.getElementById('dash-chat-window');
+  w.classList.toggle('open', dashChatOpen);
+  if (dashChatOpen) setTimeout(() => document.getElementById('dash-chat-input')?.focus(), 300);
+}
+
+async function sendDashChat(prefill) {
+  const input = document.getElementById('dash-chat-input');
+  const text  = prefill || input?.value.trim();
+  if (!text) return;
+  if (input) input.value = '';
+
+  appendDashMsg(text, 'user');
+  dashChatHistory.push({ role: 'user', content: text });
+
+  const sendBtn = document.getElementById('dash-chat-send');
+  if (sendBtn) sendBtn.disabled = true;
+
+  const typingEl = appendDashTyping();
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-password': ADMIN_PW },
+      body: JSON.stringify({
+        mode: 'dashboard', messages: dashChatHistory, adminPassword: ADMIN_PW,
+        context: { audits: allAudits }
+      })
+    });
+
+    typingEl.remove();
+    const bubble = appendDashMsg('', 'ai');
+    bubble.classList.add('streaming-cursor');
+
+    let fullText = '';
+    const reader  = res.body.getReader();
+    const decoder = new TextDecoder();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      decoder.decode(value).split('\n').forEach(line => {
+        if (!line.startsWith('data: ')) return;
+        const d = line.slice(6);
+        if (d === '[DONE]') return;
+        try { const { text: t } = JSON.parse(d); if (t) { fullText += t; bubble.textContent = fullText; } } catch {}
+      });
+    }
+    bubble.classList.remove('streaming-cursor');
+    dashChatHistory.push({ role: 'assistant', content: fullText });
+  } catch {
+    typingEl.remove();
+    appendDashMsg('Something went wrong. Try again.', 'ai');
+  }
+  if (sendBtn) sendBtn.disabled = false;
+}
+
+function appendDashMsg(text, role) {
+  const wrap = document.getElementById('dash-chat-messages');
+  const el   = document.createElement('div');
+  el.className = `chat-bubble chat-bubble--${role}`;
+  el.textContent = text;
+  wrap.appendChild(el);
+  wrap.scrollTop = wrap.scrollHeight;
+  return el;
+}
+function appendDashTyping() {
+  const wrap = document.getElementById('dash-chat-messages');
+  const el   = document.createElement('div');
+  el.className = 'chat-typing';
+  el.innerHTML = '<span></span><span></span><span></span>';
+  wrap.appendChild(el);
+  wrap.scrollTop = wrap.scrollHeight;
+  return el;
+}
+
+// Hook into existing loadAudits to also load surveys and init chat
+const _origShowDash = showDashboard;
+showDashboard = function() {
+  _origShowDash();
+  loadSurveys();
+  initDashboardChat();
+};
 </script>
 
 </body>

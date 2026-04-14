@@ -557,6 +557,143 @@ async function downloadPdf() {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 loadAudit();
+
+// ─── Results page chat ────────────────────────────────────────────────────────
+let chatHistory = [];
+let chatOpen    = false;
+
+function initResultsChat() {
+  const panel = document.createElement('div');
+  panel.className = 'chat-panel';
+  panel.innerHTML = `
+    <div class="chat-window" id="results-chat-window">
+      <div class="chat-header">
+        <div class="chat-header-dot"></div>
+        <div class="chat-header-title">Ask about your report</div>
+        <div class="chat-header-sub" style="font-size:10px;">BETA</div>
+      </div>
+      <div class="chat-messages" id="results-chat-messages">
+        <div class="chat-bubble chat-bubble--ai">Your report is ready. What would you like to understand better?</div>
+      </div>
+      <div class="chat-chips" id="results-chips"></div>
+      <div class="chat-input-row">
+        <textarea class="chat-input" id="results-chat-input" placeholder="Ask a question…" rows="1"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendResultsChat();}"></textarea>
+        <button class="chat-send" id="results-chat-send" onclick="sendResultsChat()">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7h10M7 2l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </div>
+    <button class="chat-toggle" onclick="toggleResultsChat()" title="Ask about your report (BETA)">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 5a2 2 0 012-2h10a2 2 0 012 2v7a2 2 0 01-2 2H7l-4 3V5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+    </button>`;
+  document.body.appendChild(panel);
+}
+
+function buildChips(result) {
+  if (!result) return;
+  const chips = [
+    'What should I fix first?',
+    `Why is my ${result.dimensions?.sort((a,b)=>a.score-b.score)[0]?.name} score low?`,
+    'How do I carry my best moment through the whole journey?',
+    'What does emotional coherence mean for my business?',
+  ];
+  const wrap = document.getElementById('results-chips');
+  if (!wrap) return;
+  chips.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'chat-chip';
+    btn.textContent = c;
+    btn.onclick = () => sendResultsChat(c);
+    wrap.appendChild(btn);
+  });
+}
+
+function toggleResultsChat() {
+  chatOpen = !chatOpen;
+  document.getElementById('results-chat-window').classList.toggle('open', chatOpen);
+  if (chatOpen) setTimeout(() => document.getElementById('results-chat-input')?.focus(), 300);
+}
+
+async function sendResultsChat(prefill) {
+  const input = document.getElementById('results-chat-input');
+  const text  = prefill || input?.value.trim();
+  if (!text) return;
+  if (input) input.value = '';
+
+  appendResultsMsg(text, 'user');
+  chatHistory.push({ role: 'user', content: text });
+
+  const sendBtn = document.getElementById('results-chat-send');
+  if (sendBtn) sendBtn.disabled = true;
+
+  const typing = appendResultsTyping();
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'results', messages: chatHistory, context: { result: auditData?.result } })
+    });
+
+    typing.remove();
+    const bubble = appendResultsMsg('', 'ai');
+    bubble.classList.add('streaming-cursor');
+
+    let fullText = '';
+    const reader  = res.body.getReader();
+    const decoder = new TextDecoder();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      decoder.decode(value).split('\n').forEach(line => {
+        if (!line.startsWith('data: ')) return;
+        const d = line.slice(6);
+        if (d === '[DONE]') return;
+        try { const { text: t } = JSON.parse(d); if (t) { fullText += t; bubble.textContent = fullText; } } catch {}
+      });
+    }
+    bubble.classList.remove('streaming-cursor');
+    chatHistory.push({ role: 'assistant', content: fullText });
+  } catch {
+    typing.remove();
+    appendResultsMsg('Something went wrong. Try again.', 'ai');
+  }
+  if (sendBtn) sendBtn.disabled = false;
+}
+
+function appendResultsMsg(text, role) {
+  const wrap = document.getElementById('results-chat-messages');
+  const el   = document.createElement('div');
+  el.className = `chat-bubble chat-bubble--${role}`;
+  el.textContent = text;
+  wrap.appendChild(el);
+  wrap.scrollTop = wrap.scrollHeight;
+  return el;
+}
+function appendResultsTyping() {
+  const wrap = document.getElementById('results-chat-messages');
+  const el   = document.createElement('div');
+  el.className = 'chat-typing';
+  el.innerHTML = '<span></span><span></span><span></span>';
+  wrap.appendChild(el);
+  wrap.scrollTop = wrap.scrollHeight;
+  return el;
+}
+
+// Scroll reveal
+const revealObs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal, .reveal-scale').forEach(el => revealObs.observe(el));
+
+// Hook into renderReport to init chat + chips
+const _origRender = renderReport;
+renderReport = function(data) {
+  _origRender(data);
+  initResultsChat();
+  buildChips(data.result);
+};
 </script>
 
 </body>
