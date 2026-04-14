@@ -234,22 +234,34 @@ app.post('/api/pdf', async (req, res) => {
 
     if (!audit) return res.status(400).json({ error: 'No audit data provided' });
 
-    const htmlPdf = require('html-pdf-node');
+    const puppeteer = require('puppeteer');
     const htmlContent = buildPdfHtml(audit);
-    const options = {
-      width: '1000px',
-      height: '5000px',
-      printBackground: true,
-      margin: { top: '40px', right: '0px', bottom: '40px', left: '0px' },
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
-      executablePath: process.env.CHROMIUM_PATH ||
-        ['/usr/bin/google-chrome-stable', '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser']
-          .find(p => { try { require('fs').accessSync(p); return true; } catch { return false; } }) ||
-        undefined
-    };
-    const file = { content: htmlContent };
 
-    const pdfBuffer = await htmlPdf.generatePdf(file, options);
+    const executablePath = process.env.CHROMIUM_PATH ||
+      ['/usr/bin/google-chrome-stable', '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser']
+        .find(p => { try { require('fs').accessSync(p); return true; } catch { return false; } });
+
+    const browser = await puppeteer.launch({
+      executablePath,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
+    });
+
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1000, height: 800 });
+    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+
+    // Auto-detect exact content height
+    const bodyHeight = await page.evaluate(() => document.body.scrollHeight);
+
+    const pdfBuffer = await page.pdf({
+      width: '1000px',
+      height: `${bodyHeight + 80}px`,
+      printBackground: true,
+      margin: { top: '40px', right: '0px', bottom: '40px', left: '0px' }
+    });
+
+    await browser.close();
+
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="emotional-gap-audit-${audit.brand.toLowerCase().replace(/\s+/g, '-')}.pdf"`);
     res.send(pdfBuffer);
