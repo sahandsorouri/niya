@@ -616,10 +616,13 @@ function auditRow(a) {
   const color  = score >= 70 ? 'var(--sage)' : score >= 45 ? 'var(--gold)' : 'var(--terra)';
   const date   = new Date(a.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const source = a.source || 'public';
+  const surveyLabel = a.survey_slug
+    ? `<span style="display:inline-block;margin-left:6px;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;background:rgba(201,162,74,0.12);color:var(--gold);border:1px solid rgba(201,162,74,0.25);" title="From survey ${a.survey_slug}">survey</span>`
+    : '';
   return `
     <tr class="audit-row" onclick="toggleRow('${a.id}')">
       <td style="color:var(--text);font-weight:500;">${esc(a.name)}</td>
-      <td>${esc(a.brand)}</td>
+      <td>${esc(a.brand)}${surveyLabel}</td>
       <td>${date}</td>
       <td><span style="font-family:var(--font-display);font-size:18px;color:${color};">${score}</span></td>
       <td><span class="source-badge source-badge--${source}">${source}</span></td>
@@ -943,12 +946,18 @@ function renderSurveyList() {
       <table>
         <thead><tr><th>Client</th><th>Entity word</th><th>Slug</th><th>Responses</th><th>Created</th><th>Actions</th></tr></thead>
         <tbody>
-          ${allSurveys.map(s => `
+          ${allSurveys.map(s => {
+            const count = (s.audit_ids||[]).length;
+            return `
             <tr>
               <td style="color:var(--text);font-weight:500;">${esc(s.client_label)}</td>
               <td><span class="badge badge--medium">${esc(s.entity_word)}</span></td>
               <td><code style="font-size:12px;color:var(--gold);">${s.slug}</code></td>
-              <td style="color:var(--text-muted);">${(s.audit_ids||[]).length}</td>
+              <td>
+                ${count > 0
+                  ? `<button onclick="toggleSurveyResponses('${s.slug}')" style="background:none;border:none;cursor:pointer;color:var(--gold);font-weight:600;font-size:14px;padding:0;" title="View responses">${count} →</button>`
+                  : `<span style="color:var(--text-muted);">0</span>`}
+              </td>
               <td style="color:var(--text-muted);">${new Date(s.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</td>
               <td>
                 <div style="display:flex;gap:6px;">
@@ -958,7 +967,12 @@ function renderSurveyList() {
               </td>
             </tr>
             ${s.ai_summary ? `<tr><td colspan="6" style="padding:8px 16px 16px;"><div style="background:var(--surface);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;padding:12px 16px;font-size:13px;color:var(--text-soft);font-style:italic;">${esc(s.ai_summary)}</div></td></tr>` : ''}
-          `).join('')}
+            <tr id="sr-${s.slug}" style="display:none;">
+              <td colspan="6" style="padding:0 0 16px 0;">
+                <div id="sr-body-${s.slug}" style="background:var(--surface);border-radius:12px;padding:16px;border:1px solid var(--border);"></div>
+              </td>
+            </tr>`;
+          }).join('')}
         </tbody>
       </table>
     </div>`;
@@ -967,6 +981,42 @@ function renderSurveyList() {
 function copySurveyLink(slug) {
   const url = `${location.origin}/s/${slug}`;
   navigator.clipboard.writeText(url).then(() => alert(`Copied: ${url}`));
+}
+
+function toggleSurveyResponses(slug) {
+  const row  = document.getElementById(`sr-${slug}`);
+  const body = document.getElementById(`sr-body-${slug}`);
+  if (!row) return;
+  const open = row.style.display !== 'none';
+  row.style.display = open ? 'none' : '';
+  if (open) return;
+
+  const survey  = allSurveys.find(s => s.slug === slug);
+  const ids     = survey?.audit_ids || [];
+  const audits  = allAudits.filter(a => ids.includes(a.id));
+
+  if (audits.length === 0) {
+    body.innerHTML = `<p style="font-size:13px;color:var(--text-muted);">No completed responses yet.</p>`;
+    return;
+  }
+
+  body.innerHTML = audits.map(a => {
+    const score = a.result?.overall_score ?? '—';
+    const color = score >= 70 ? 'var(--sage)' : score >= 45 ? 'var(--gold)' : 'var(--terra)';
+    const date  = new Date(a.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
+        <div>
+          <div style="font-weight:500;font-size:14px;color:var(--text);">${esc(a.name)} <span style="font-weight:400;color:var(--text-muted);">— ${esc(a.brand)}</span></div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${date}${a.result?.headline ? ` · "${esc(a.result.headline)}"` : ''}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span style="font-family:var(--font-display);font-size:22px;color:${color};">${score}</span>
+          <button class="icon-btn" title="View full report" onclick="openAuditDetail('${a.id}')">⤢</button>
+          <a class="icon-btn" href="results.html?id=${a.id}" target="_blank" title="Open report page">↗</a>
+        </div>
+      </div>`;
+  }).join('');
 }
 
 async function deleteSurvey(slug) {
