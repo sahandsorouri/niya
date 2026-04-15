@@ -521,6 +521,7 @@ function showTab(name) {
   document.querySelectorAll('.sidebar-nav a').forEach(a => a.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   document.getElementById('tab-link-' + name).classList.add('active');
+  if (name === 'surveys') loadSurveys();
   return false;
 }
 

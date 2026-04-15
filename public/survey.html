@@ -220,7 +220,7 @@
     <div id="dynamic-steps"></div>
 
     <!-- Touchpoint mapping (if included) -->
-    <div class="form-step" id="fstep-touchpoints" style="display:none;">
+    <div class="form-step" id="fstep-touchpoints">
       <h2 class="form-step-title" id="tp-title">Map your journey.</h2>
       <p class="form-step-sub" id="tp-sub">List the key moments — from first contact to delivery. Add up to 6 touchpoints.</p>
       <div id="tp-list"></div>
@@ -236,7 +236,7 @@
     </div>
 
     <!-- Feelings per touchpoint -->
-    <div class="form-step" id="fstep-feelings" style="display:none;">
+    <div class="form-step" id="fstep-feelings">
       <p class="tp-progress" id="feelings-progress">Touchpoint 1 of 1</p>
       <div id="feelings-container"></div>
       <div class="form-nav">
@@ -246,7 +246,7 @@
     </div>
 
     <!-- Loading step -->
-    <div class="form-step" id="fstep-loading" style="display:none;">
+    <div class="form-step" id="fstep-loading">
       <div style="text-align:center;padding:40px 0;">
         <div class="loading-orb" style="margin:0 auto 32px;">
           <div class="loading-orb__ring"></div><div class="loading-orb__ring"></div>
@@ -553,7 +553,16 @@ function buildQuestionHTML(q, i) {
           <button class="btn btn--primary btn--full" onclick="saveRanking(${i});formNext();">Next →</button>
         </div>`;
 
-    default: return '';
+    default:
+      return `
+        <h2 class="form-step-title">${label}</h2>
+        <div class="form-group mt-24">
+          <textarea class="form-textarea" id="dynq_${i}" placeholder="Your answer…" style="min-height:120px;"></textarea>
+        </div>
+        <div class="form-nav mt-16">
+          <button class="btn btn--ghost" onclick="formBack()">← Back</button>
+          <button class="btn btn--primary btn--full" onclick="saveDynQ(${i},'open');formNext();">Next →</button>
+        </div>`;
   }
 }
 
@@ -572,11 +581,9 @@ function renderCurrentStep() {
   if (step === 'about') {
     document.getElementById('fstep-about').classList.add('active');
   } else if (step === 'touchpoints') {
-    document.getElementById('fstep-touchpoints').style.display = '';
     document.getElementById('fstep-touchpoints').classList.add('active');
     renderTpList();
-  } else if (step === 'feelings') {
-    document.getElementById('fstep-feelings').style.display = '';
+  } else if (step?.startsWith('feelings_')) {
     document.getElementById('fstep-feelings').classList.add('active');
     renderFeelingsStep();
   } else if (step?.startsWith('dynq_')) {
@@ -731,7 +738,6 @@ function saveRanking(i) {
 async function submitAudit() {
   // Hide form, show loading inline
   document.querySelectorAll('#screen-form .form-step').forEach(s => s.classList.remove('active'));
-  document.getElementById('fstep-loading').style.display = '';
   document.getElementById('fstep-loading').classList.add('active');
   startLoadingText();
 
