@@ -140,9 +140,30 @@
       .admin-form-panel { padding: 24px 20px; }
       .login-card { padding: 36px 24px; }
     }
+
+  /* ── Toast ── */
+  #toast-container {
+    position: fixed; bottom: 32px; right: 32px; z-index: 9999;
+    display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+  }
+  .toast {
+    background: var(--surface); border: 1px solid var(--border-hover);
+    border-radius: 14px; padding: 14px 20px;
+    display: flex; align-items: center; gap: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    font-size: 14px; color: var(--text); max-width: 320px;
+    opacity: 0; transform: translateY(12px);
+    transition: opacity 300ms ease, transform 300ms ease;
+    pointer-events: auto;
+  }
+  .toast.visible { opacity: 1; transform: translateY(0); }
+  .toast__dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--gold); }
+  .toast--error .toast__dot { background: var(--terra); }
   </style>
 </head>
 <body>
+
+<div id="toast-container"></div>
 
 <!-- ════════════════════════════════════════════════════════════════════════ -->
 <!-- LOGIN SCREEN                                                             -->
@@ -711,17 +732,60 @@ function openAuditDetail(id) {
     </div>
   `).join('');
 
+  // ── Raw survey responses ──
+  const extraAnswers = a.extra_answers || {};
+  const extraKeys = Object.keys(extraAnswers).sort((x, y) => parseInt(x.slice(1)) - parseInt(y.slice(1)));
+  const responsesHtml = extraKeys.length ? extraKeys.map(k => {
+    const q = extraAnswers[k];
+    const val = Array.isArray(q.value) ? q.value.join(' → ') : String(q.value || '—');
+    return `
+      <div style="padding:12px 0;border-bottom:1px solid var(--border);">
+        <div style="font-size:12px;color:var(--gold);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">${esc(q.label || k)}</div>
+        <div style="font-size:14px;color:var(--text-soft);line-height:1.6;">${esc(val)}</div>
+      </div>`;
+  }).join('') : '';
+
+  // ── Journey map ──
+  const tps = a.touchpoints || [];
+  const journeyHtml = tps.length ? tps.map((tp, i) => `
+    <div style="padding:12px 0;border-bottom:1px solid var(--border);">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <span style="width:22px;height:22px;border-radius:50%;background:var(--gold);color:#0D0D0D;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</span>
+        <div style="font-weight:500;font-size:14px;color:var(--text);">${esc(tp.name)}</div>
+      </div>
+      <div style="display:flex;gap:24px;padding-left:32px;">
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px;">Intended feeling</div>
+          <div style="font-size:13px;color:var(--sage);">${esc(tp.intended_feeling || '—')}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px;">Actual feeling</div>
+          <div style="font-size:13px;color:var(--terra);">${esc(tp.actual_feeling || '—')}</div>
+        </div>
+      </div>
+    </div>`).join('') : '';
+
   document.getElementById('modal-content').innerHTML = `
     <div class="flex justify-between items-center mb-24">
       <div>
         <div style="font-size:18px;font-weight:500;color:var(--text);">${esc(a.name)} — ${esc(a.brand)}</div>
-        <div style="font-size:13px;color:var(--text-muted);">${date} · ${a.business_type || ''}</div>
+        <div style="font-size:13px;color:var(--text-muted);">${date} · ${a.business_type || ''}${a.survey_slug ? ` · Survey: ${a.survey_slug}` : ''}</div>
       </div>
       <div style="font-family:var(--font-display);font-size:40px;color:${color};">${score}</div>
     </div>
 
     ${a.result?.headline ? `<p style="font-family:var(--font-display);font-style:italic;font-size:18px;color:var(--text);margin-bottom:16px;">"${esc(a.result.headline)}"</p>` : ''}
     ${a.result?.narrative ? `<div style="background:var(--card);border-left:3px solid var(--gold);border-radius:0 12px 12px 0;padding:16px 20px;margin-bottom:24px;"><p style="font-size:14px;color:var(--text-soft);line-height:1.7;">${esc(a.result.narrative)}</p></div>` : ''}
+
+    ${responsesHtml ? `
+    <h3 style="font-family:var(--font-display);font-size:17px;margin-bottom:4px;">Survey Responses</h3>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Exact answers the client submitted</p>
+    <div style="margin-bottom:28px;">${responsesHtml}</div>` : ''}
+
+    ${journeyHtml ? `
+    <h3 style="font-family:var(--font-display);font-size:17px;margin-bottom:4px;">Journey Map</h3>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Intended vs. actual feelings per touchpoint</p>
+    <div style="margin-bottom:28px;">${journeyHtml}</div>` : ''}
 
     <h3 style="font-family:var(--font-display);font-size:17px;margin-bottom:12px;">Dimensions</h3>
     <div style="margin-bottom:24px;">${dimsHtml}</div>
@@ -978,9 +1042,21 @@ function renderSurveyList() {
     </div>`;
 }
 
+function showToast(msg, type = 'success') {
+  const el = document.createElement('div');
+  el.className = `toast${type === 'error' ? ' toast--error' : ''}`;
+  el.innerHTML = `<div class="toast__dot"></div><span>${msg}</span>`;
+  document.getElementById('toast-container').appendChild(el);
+  requestAnimationFrame(() => { requestAnimationFrame(() => el.classList.add('visible')); });
+  setTimeout(() => {
+    el.classList.remove('visible');
+    setTimeout(() => el.remove(), 320);
+  }, 3000);
+}
+
 function copySurveyLink(slug) {
   const url = `${location.origin}/s/${slug}`;
-  navigator.clipboard.writeText(url).then(() => alert(`Copied: ${url}`));
+  navigator.clipboard.writeText(url).then(() => showToast(`Link copied!`));
 }
 
 function toggleSurveyResponses(slug) {
