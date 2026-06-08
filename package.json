@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "start:cloud": "node server-cloud.js",
+    "dev:cloud": "nodemon server-cloud.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
